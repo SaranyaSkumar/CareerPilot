@@ -13,7 +13,7 @@ async function proxy(request: NextRequest, path: string[]) {
   }
 
   const pathname = path.map(segment => encodeURIComponent(segment)).join("/");
-  const target = `${BACKEND_URL}/${pathname}${request.nextUrl.search}`;
+  const target = `${BACKEND_URL}/api/${pathname}${request.nextUrl.search}`;
   const headers = new Headers();
   const contentType = request.headers.get("content-type");
   const accept = request.headers.get("accept");
