@@ -16,3 +16,16 @@ class CareerProfile(Base):
     location: Mapped[str] = mapped_column(String(200), default="New Zealand")
     summary: Mapped[str] = mapped_column(Text, default="")
     skills: Mapped[str] = mapped_column(Text, default="")
+
+
+class CvDocument(Base):
+    __tablename__ = "cv_documents"
+
+    # One personal CV draft for the personal-first MVP; user scoping follows auth.
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    headline: Mapped[str] = mapped_column(String(200), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    experience: Mapped[str] = mapped_column(Text, default="")
+    skills: Mapped[str] = mapped_column(Text, default="")
+    education: Mapped[str] = mapped_column(Text, default="")
