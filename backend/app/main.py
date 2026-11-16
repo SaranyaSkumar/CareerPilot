@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app import models  # noqa: F401 - register ORM models before create_all
 from app.profile import router as profile_router
+from app.cv import router as cv_router
 
 
 @asynccontextmanager
@@ -31,6 +32,7 @@ app.add_middleware(
 )
 
 app.include_router(profile_router)
+app.include_router(cv_router)
 
 
 @app.get("/health", tags=["system"])
