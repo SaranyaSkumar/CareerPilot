@@ -32,7 +32,6 @@ const emptyProfile: Profile = {
   skills: "",
 };
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 function fromApi(value: ApiProfile): Profile {
   return {
@@ -70,7 +69,7 @@ export default function ProfilePage() {
 
     async function load() {
       try {
-        const response = await fetch(`${API_URL}/api/v1/profile`);
+        const response = await fetch("/api/v1/profile");
         if (!response.ok) throw new Error("The profile API could not be reached.");
         const serverProfile = fromApi(await response.json() as ApiProfile);
         const localRaw = window.localStorage.getItem("careerpilot.profile");
@@ -80,7 +79,7 @@ export default function ProfilePage() {
           try {
             const localProfile = { ...emptyProfile, ...JSON.parse(localRaw) } as Profile;
             if (hasContent(localProfile)) {
-              const migrated = await fetch(`${API_URL}/api/v1/profile`, {
+              const migrated = await fetch("/api/v1/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(toApi(localProfile)),
@@ -129,7 +128,7 @@ export default function ProfilePage() {
     setStatus("saving");
     setMessage("");
     try {
-      const response = await fetch(`${API_URL}/api/v1/profile`, {
+      const response = await fetch("/api/v1/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(toApi(profile)),
