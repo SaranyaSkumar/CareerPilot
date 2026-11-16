@@ -20,3 +20,23 @@ CareerPilot is being built personal-first, with an architecture that can support
 The initial implementation is a modular monolith: Next.js + TypeScript + Tailwind for the web app, FastAPI for the API, and PostgreSQL for persistent data. Background processing and external integrations will be introduced incrementally.
 
 See `docs/` for the product specification and architecture.
+
+
+## Vercel multi-service deployment
+
+The repository defines two Vercel services in the root `vercel.json`:
+
+- `web`: Next.js application rooted at `apps/web`; this is the only service receiving public traffic.
+- `backend`: FastAPI application rooted at `backend`, with ASGI entrypoint `app.main:app`.
+
+The web service has an internal service binding to `backend`. Vercel injects the backend service URL into the web runtime as `CAREERPILOT_BACKEND_URL`. Browser requests use same-origin `/api/*` paths; the Next.js catch-all route at `apps/web/src/app/api/[...path]/route.ts` forwards those requests server-side to the bound backend. The root rewrite sends all public paths to `web`; there is no direct public rewrite to the backend service.
+
+### Required deployment configuration
+
+- Configure `DATABASE_URL` for the backend to point to a managed PostgreSQL database. The default SQLite database is suitable only for local development and is not durable on serverless instances.
+- Configure the `CAREERPILOT_BACKEND_URL` service binding through Vercel as declared in `vercel.json`; do not set a public `NEXT_PUBLIC_API_URL`.
+- Ensure the Vercel project is linked to this repository and supports the configured multi-service deployment.
+
+### Security gate before production
+
+This is still a personal-development API with a singleton profile/CV and no authentication or per-user authorization. Although the backend service is not routed directly from the public edge, the web proxy intentionally exposes its current API paths at same-origin `/api/v1/*`. **Do not use this deployment with real personal data or promote it to production until authentication, per-user data isolation, authorization, and appropriate database protections are implemented and tested.** Keeping the backend service internal is not a substitute for API authentication.

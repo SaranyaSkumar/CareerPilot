@@ -10,7 +10,6 @@ type ApiProfile = { full_name: string; headline: string; summary: string; skills
 
 const blank: Cv = { name: "", headline: "", summary: "", experience: "", skills: "", education: "" };
 const input = "mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]";
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 function fromApi(value: ApiCv): Cv {
   return { name: value.name, headline: value.headline, summary: value.summary, experience: value.experience, skills: value.skills, education: value.education };
@@ -28,7 +27,7 @@ export default function CvPage() {
     let active = true;
     async function load() {
       try {
-        const response = await fetch(`${API_URL}/api/v1/cv`);
+        const response = await fetch("/api/v1/cv");
         if (!response.ok) throw new Error("CV API unavailable");
         const serverCv = fromApi(await response.json() as ApiCv);
         const localRaw = localStorage.getItem("careerpilot.cv");
@@ -37,7 +36,7 @@ export default function CvPage() {
           try {
             const localCv = { ...blank, ...JSON.parse(localRaw) } as Cv;
             if (hasContent(localCv)) {
-              const migrated = await fetch(`${API_URL}/api/v1/cv`, {
+              const migrated = await fetch("/api/v1/cv", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(localCv),
@@ -56,7 +55,7 @@ export default function CvPage() {
         }
 
         if (!hasContent(serverCv)) {
-          const profileResponse = await fetch(`${API_URL}/api/v1/profile`);
+          const profileResponse = await fetch("/api/v1/profile");
           if (profileResponse.ok) {
             const profile = await profileResponse.json() as ApiProfile;
             serverCv.name = profile.full_name;
@@ -102,7 +101,7 @@ export default function CvPage() {
     setStatus("saving");
     setMessage("");
     try {
-      const response = await fetch(`${API_URL}/api/v1/cv`, {
+      const response = await fetch("/api/v1/cv", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cv),
