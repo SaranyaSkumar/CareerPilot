@@ -248,3 +248,26 @@ class JobProviderQuota(Base):
     provider_key: Mapped[str] = mapped_column(String(40), nullable=False)
     quota_day: Mapped[date] = mapped_column(Date, nullable=False)
     request_count: Mapped[int] = mapped_column(nullable=False, default=0)
+
+
+class JobApplication(Base):
+    """A user's tracked opportunity and application progress."""
+
+    __tablename__ = "job_applications"
+    __table_args__ = (
+        Index("job_applications_user_updated_idx", "user_id", "updated_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    company: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    location: Mapped[str] = mapped_column(String(200), default="New Zealand", nullable=False)
+    url: Mapped[str] = mapped_column(String(2000), default="", nullable=False)
+    stage: Mapped[str] = mapped_column(String(32), default="interested", nullable=False, index=True)
+    applied_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    next_action: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    next_action_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
