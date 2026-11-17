@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
 from app.database import get_db
-from app.models import JobApplication
+from app.models import CvVersion, JobApplication
 
 router = APIRouter(prefix="/api/v1/applications", tags=["applications"])
 Stage = Literal["interested", "preparing", "ready_to_apply", "applied", "assessment", "interview", "offer", "rejected", "withdrawn"]
@@ -39,6 +39,8 @@ class ApplicationUpdate(BaseModel):
     next_action: str | None = Field(default=None, max_length=500)
     next_action_date: date | None = None
     notes: str | None = Field(default=None, max_length=10000)
+    cv_version_id: int | None = None
+    cover_letter: str | None = Field(default=None, max_length=20000)
 
     @field_validator("title")
     @classmethod
@@ -63,6 +65,8 @@ class ApplicationResponse(BaseModel):
     next_action: str
     next_action_date: date | None
     notes: str
+    cv_version_id: int | None
+    cover_letter: str
     created_at: datetime
     updated_at: datetime
 
@@ -118,8 +122,17 @@ def update_application(
     db: Session = Depends(get_db),
 ):
     item = _owned_application(db, user_id, application_id)
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        if key in {"company", "location", "url", "next_action", "notes"} and value is not None:
+    changes = payload.model_dump(exclude_unset=True)
+    if "cv_version_id" in changes and changes["cv_version_id"] is not None:
+        version = (
+            db.query(CvVersion)
+            .filter(CvVersion.id == changes["cv_version_id"], CvVersion.user_id == user_id)
+            .one_or_none()
+        )
+        if version is None:
+            raise HTTPException(status_code=404, detail="CV version not found.")
+    for key, value in changes.items():
+        if key in {"company", "location", "url", "next_action", "notes", "cover_letter"} and value is not None:
             value = value.strip()
         setattr(item, key, value)
     if item.stage == "applied" and item.applied_at is None:
