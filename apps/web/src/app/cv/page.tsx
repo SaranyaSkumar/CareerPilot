@@ -8,6 +8,9 @@ type Cv = { name: string; headline: string; summary: string; experience: string;
 type ApiCv = { id: number; name: string; headline: string; summary: string; experience: string; skills: string; education: string };
 type ApiProfile = { full_name: string; headline: string; summary: string; skills: string };
 type CvVersion = { id: number; label: string; job_title: string; company: string; notes: string; created_at: string; snapshot: Cv };
+type AtsFinding = { code: string; severity: "info" | "warning" | "good"; title: string; detail: string };
+type AtsKeyword = { term: string; status: "matched" | "related" | "missing"; evidence: string };
+type AtsAnalysis = { formatting_score: number; content_score: number | null; overall_score: number | null; findings: AtsFinding[]; keywords: AtsKeyword[]; disclaimer: string };
 
 const blank: Cv = { name: "", headline: "", summary: "", experience: "", skills: "", education: "" };
 const input = "mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]";
@@ -27,6 +30,9 @@ export default function CvPage() {
   const [versions, setVersions] = useState<CvVersion[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [versionBusy, setVersionBusy] = useState(false);
+  const [jobDescription, setJobDescription] = useState("");
+  const [analysis, setAnalysis] = useState<AtsAnalysis | null>(null);
+  const [analysing, setAnalysing] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -191,6 +197,34 @@ export default function CvPage() {
     }
   }
 
+  async function runAtsAnalysis() {
+    setAnalysing(true);
+    setMessage("");
+    try {
+      const saved = await fetch("/api/v1/cv", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cv),
+      });
+      if (!saved.ok) throw new Error("Save your CV before analysing it.");
+      const response = await fetch("/api/v1/cv/analyse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_description: jobDescription }),
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(detail?.detail || "ATS analysis could not be completed.");
+      }
+      setAnalysis(await response.json() as AtsAnalysis);
+      setStatus("saved");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "ATS analysis could not be completed.");
+    } finally {
+      setAnalysing(false);
+    }
+  }
+
   async function exportCv(format: "pdf" | "docx") {
     setExporting(format);
     setMessage("");
@@ -282,6 +316,41 @@ export default function CvPage() {
             </div>
           </section>
 
+          <section className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-5">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="font-semibold">ATS analyser</h2>
+                <p className="mt-1 text-xs text-[var(--muted)]">Check your CV structure and compare its wording with a specific job description.</p>
+              </div>
+              <button onClick={() => void runAtsAnalysis()} disabled={analysing || status === "loading"} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{analysing ? "Analysing…" : "Analyse my CV"}</button>
+            </div>
+            <label className="mt-4 block text-sm font-medium">Job description <span className="font-normal text-[var(--muted)]">(optional)</span>
+              <textarea className={input + " min-h-36 resize-y"} value={jobDescription} onChange={e => setJobDescription(e.target.value)} placeholder="Paste the job description here for a tailored keyword and alignment check…"/>
+            </label>
+            {analysis && <div className="mt-5 space-y-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-[var(--brand-soft)] p-4"><p className="text-xs text-[var(--muted)]">CV structure</p><p className="mt-1 text-2xl font-semibold">{analysis.formatting_score}<span className="text-sm font-normal">/100</span></p></div>
+                <div className="rounded-xl border border-[var(--line)] p-4"><p className="text-xs text-[var(--muted)]">Job keyword coverage</p><p className="mt-1 text-2xl font-semibold">{analysis.content_score === null ? "—" : <>{analysis.content_score}<span className="text-sm font-normal">/100</span></>}</p></div>
+                <div className="rounded-xl border border-[var(--line)] p-4"><p className="text-xs text-[var(--muted)]">Indicative alignment</p><p className="mt-1 text-2xl font-semibold">{analysis.overall_score === null ? "—" : <>{analysis.overall_score}<span className="text-sm font-normal">/100</span></>}</p></div>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold">Recommendations</h3>
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  {analysis.findings.map(item => <div key={item.code} className="rounded-xl border border-[var(--line)] p-3">
+                    <p className="text-sm font-semibold">{item.title}</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">{item.detail}</p>
+                  </div>)}
+                </div>
+              </div>
+              {analysis.keywords.length > 0 && <div>
+                <h3 className="text-sm font-semibold">Job description terms</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {analysis.keywords.map(item => <span key={item.term} title={item.evidence} className={"rounded-full px-3 py-1.5 text-xs font-medium " + (item.status === "matched" ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "bg-amber-50 text-amber-800")}>{item.term} · {item.status}</span>)}
+                </div>
+              </div>}
+              <p className="text-xs leading-5 text-[var(--muted)]">{analysis.disclaimer}</p>
+            </div>}
+          </section>
+
           <div className="mt-6 grid items-start gap-6 xl:grid-cols-[1fr_0.9fr]">
             <section className="rounded-2xl border border-[var(--line)] bg-white p-6">
               <div className="flex items-center gap-2"><FileUser className="text-[var(--brand)]" size={19}/><h2 className="font-semibold">CV content</h2></div>
@@ -310,7 +379,7 @@ export default function CvPage() {
               </article>
             </section>
           </div>
-          <p className="mt-5 text-xs text-[var(--muted)]">Download an editable Word document or an ATS-friendly PDF. Multiple templates and ATS diagnostics are coming next.</p>
+          <p className="mt-5 text-xs text-[var(--muted)]">Download an editable Word document or an ATS-friendly PDF. The analyser checks your structured CV content and job-description wording; it does not emulate a specific employer ATS.</p>
         </div>
       </div>
     </main>
