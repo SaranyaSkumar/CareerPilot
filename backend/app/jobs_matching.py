@@ -39,7 +39,7 @@ def analyse_job_fit(job: JobListing, profile: CareerProfile) -> dict:
     not_found = [skill for skill in candidate_skills if skill not in description]
 
     detected_requirements = [
-        skill for skill in KNOWN_SKILLS
+        skill for skill in sorted(KNOWN_SKILLS)
         if re.search(r"(?<![a-z0-9])" + re.escape(skill) + r"(?![a-z0-9])", description)
     ]
     candidate_normalised = " " + " ".join(candidate_skills) + " "
