@@ -20,6 +20,15 @@ type Job = {
   updated_at: string;
 };
 
+type JobMatch = {
+  score: number | null;
+  matched_skills: string[];
+  not_found_skills: string[];
+  detected_requirement_count: number;
+  profile_ready: boolean;
+  message: string;
+};
+
 type JobDraft = {
   title: string;
   company: string;
@@ -47,6 +56,8 @@ export default function JobsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [matches, setMatches] = useState<Record<number, JobMatch>>({});
+  const [matching, setMatching] = useState<number | null>(null);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -110,6 +121,21 @@ export default function JobsPage() {
       await loadJobs();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update this job.");
+    }
+  }
+
+  async function reviewMatch(job: Job) {
+    setMatching(job.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/v1/jobs/${job.id}/match`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not compare this job with your profile.");
+      const result = await response.json() as JobMatch;
+      setMatches(current => ({ ...current, [job.id]: result }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not compare this job.");
+    } finally {
+      setMatching(null);
     }
   }
 
@@ -192,11 +218,24 @@ export default function JobsPage() {
                     <p className="mt-3 text-xs text-[var(--muted)]">Added {new Date(job.created_at).toLocaleDateString()}</p>
                   </div>
                   <div className="flex shrink-0 flex-row flex-wrap items-start gap-2 sm:flex-col">
+                    <button onClick={() => void reviewMatch(job)} disabled={matching === job.id} className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--brand)] hover:bg-[var(--brand-soft)] disabled:opacity-60">{matching === job.id ? "Checking…" : "Match to my profile"}</button>
                     {job.url && <a href={job.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] no-underline hover:bg-[var(--background)]">Original listing <ExternalLink size={13}/></a>}
                     <button onClick={() => void changeStatus(job, job.status === "saved" ? "archived" : "saved")} className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:bg-[var(--background)]">{job.status === "saved" ? <><Archive size={13}/>Archive</> : <><ArrowUpRight size={13}/>Restore</>}</button>
                     <button onClick={() => void removeJob(job)} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={13}/>Delete</button>
                   </div>
                 </div>
+                {matches[job.id] && <div className="mt-5 rounded-xl bg-[var(--background)] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Your job fit review</h3>
+                    <span className="text-sm font-semibold text-[var(--brand)]">{matches[job.id].score === null ? "Not enough detail to score" : `${matches[job.id].score}/100 indicative match`}</span>
+                  </div>
+                  {!matches[job.id].profile_ready && <p className="mt-2 text-xs text-amber-700">Add your professional headline and skills to Career Profile for a more useful comparison.</p>}
+                  {matches[job.id].detected_requirement_count === 0 ? <p className="mt-2 text-sm text-[var(--muted)]">No recognised skills were found in this description, so CareerPilot has not invented a score.</p> : <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div><p className="text-xs font-semibold text-[var(--muted)]">Found in your profile</p><p className="mt-1 text-sm">{matches[job.id].matched_skills.length ? matches[job.id].matched_skills.join(", ") : "No recognised matches yet"}</p></div>
+                    <div><p className="text-xs font-semibold text-[var(--muted)]">Not found in your profile</p><p className="mt-1 text-sm">{matches[job.id].not_found_skills.length ? matches[job.id].not_found_skills.join(", ") : "None from the recognised terms"}</p></div>
+                  </div>}
+                  <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{matches[job.id].message} “Not found” does not mean you lack a skill.</p>
+                </div>}
               </article>)
             }
           </div>
