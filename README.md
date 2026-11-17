@@ -21,19 +21,21 @@ The initial implementation is a modular monolith: Next.js + TypeScript + Tailwin
 
 See `docs/` for the product specification and architecture.
 
-## Job discovery — first release
+## Job discovery
 
-The Discover jobs workspace now supports:
+Discover jobs can:
 
-- Saving a vacancy from a public job-board or company careers-page URL.
-- Pasting the original job description so it is available for later matching.
-- Searching saved opportunities by role, company, skills, location, and source.
-- Filtering saved and archived roles, restoring archived roles, and deleting entries.
-- Duplicate URL detection to avoid saving the same listing twice.
+- Pull listings from the Adzuna and Jooble APIs when those keys are set. Missing keys show as “not configured” and that provider is skipped.
+- Open a prefilled search on SEEK NZ, LinkedIn Jobs, Indeed NZ, and Trade Me Jobs. Those buttons do not download the pages.
+- Save a job from a pasted link. SEEK, LinkedIn, Indeed, and Trade Me require the description to be pasted. Other public pages can be read once, with a short timeout, preferring JSON-LD `JobPosting`.
+- Store the result on the signed-in user's job list, drop duplicates, and score it against that user's profile.
+- Filter the list by source and status, and open a job to tailor the CV or download the current CV.
 
-This release is a personal job inbox, not a live job-board aggregator. It does not scrape SEEK, Trade Me Jobs, LinkedIn, or employer sites. Provider integrations will be added only through permitted feeds or APIs and in accordance with their terms. Job descriptions and URLs are user-provided and should be treated as untrusted content.
+Find jobs is a button. `POST /api/v1/jobs/discovery/refresh` repeats that search for the signed-in user only, and does nothing when their last run is still inside the daily window. There is no always-on worker. Results are cached for 12 hours. Jooble's free plan allows 100 requests per day, so this app stops at 90 and then shows the last saved listings. This app also stops Adzuna at 250 requests per UTC day, and spaces repeat calls to the same provider at least 2.5 seconds apart inside one process.
 
-The API is available at `GET/POST /api/v1/jobs`, `PATCH /api/v1/jobs/{id}`, and `DELETE /api/v1/jobs/{id}`. Search supports `q`, `location`, and `status` query parameters.
+Each user can turn sources on or off and set a default country, location, keyword override, and remote preference at `/jobs/preferences`. Blank keywords use the profile headline and the first skills.
+
+The API is available at `GET/POST /api/v1/jobs`, `GET /api/v1/jobs/{id}`, `PATCH /api/v1/jobs/{id}`, `DELETE /api/v1/jobs/{id}`, `GET/PUT /api/v1/jobs/discovery/settings`, `POST /api/v1/jobs/discovery`, `POST /api/v1/jobs/discovery/refresh`, and `POST /api/v1/jobs/from-link`. List search supports `q`, `location`, `source`, `status` (`saved`, `archived`, `discovered`, `all`), and `sort` (`recent` or `match`).
 
 ## Vercel multi-service deployment
 
@@ -52,6 +54,7 @@ Apply these scripts in the Supabase SQL editor before starting this version of t
 - `backend/migrations_sql/20261117_0002_add_ai_usage.sql` adds `ai_usage_events` for CV-writing spend caps. It does not change CV, profile, or job rows.
 - `backend/migrations_sql/20261117_0003_add_profile_contact_fields.sql` adds optional `phone`, `website_url`, `linkedin_url`, and `github_url` columns on `career_profiles`. It does not delete rows or turn off row level security, and it repeats the `careerpilot_app` grants.
 - `backend/migrations_sql/20261117_0004_add_cv_variants.sql` adds `cv_variants` for tailored copies that stay separate from the original CV.
+- `backend/migrations_sql/20261117_0005_job_discovery.sql` adds job-discovery settings and provider cache tables, plus salary, posted date, and a dedupe key on `job_listings`. It does not delete existing jobs.
 
 Web service (Vercel project environment, not the backend):
 
@@ -69,6 +72,9 @@ Backend service:
 - `ANTHROPIC_MODEL` — optional, default `claude-sonnet-5-5`
 - `ANTHROPIC_DAILY_USER_CAP_USD` — optional, default `2`
 - `ANTHROPIC_MONTHLY_CAP_USD` — optional, default `50`
+- `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` — optional. Register a free application at [developer.adzuna.com](https://developer.adzuna.com/). The New Zealand search uses country `nz`. Leave either value blank to skip Adzuna.
+- `JOOBLE_API_KEY` — optional. Request a **New Zealand** key at [nz.jooble.org/api/about](https://nz.jooble.org/api/about). A key created on jooble.org returns US listings only. Jooble emails the key. The free plan allows 100 requests per day.
+- `JOOBLE_API_BASE` — optional. Default `https://jooble.org/api`, which is the host in Jooble's request example. Set it to another official host such as `https://nz.jooble.org/api` if the New Zealand key must be posted there. Only `jooble.org` hosts are accepted.
 
 The `CAREERPILOT_BACKEND_URL` binding is injected from `vercel.json`. Do not set a public `NEXT_PUBLIC_API_URL`. Do not put a service-role key, secret key, or the legacy JWT secret in either service. Nothing in the web app should use a key that bypasses row level security.
 
@@ -92,7 +98,7 @@ Browser drafts in local storage are keyed by the signed-in user id and cleared o
 
 ### AI CV writing
 
-CV Studio can tailor the saved CV to one saved job, or rewrite selected experience lines. Claude receives only that user's saved facts. Suggestions are shown side by side and are not stored until the user accepts them. A tailored CV is saved as a named variant and does not replace the original draft. The ATS analyser can also create an adjusted variant from its suggestions. Missing keywords are suggested only when the saved CV already supports them; the rest are gaps the user can tick if they are true. The model is instructed not to invent experience, employers, dates, skills, or metrics, and the API flags wording it cannot ground in the saved CV. Each request is refused above US$0.50. A user defaults to US$2 per UTC day, and the workspace defaults to US$50 per UTC month, tracked in `ai_usage_events`. Apply `backend/migrations_sql/20261117_0004_add_cv_variants.sql` in the Supabase SQL editor before using variants.
+CV Studio can tailor the saved CV to one of that user's jobs, including a job found by discovery, or rewrite selected experience lines. Claude receives only that user's saved facts. Suggestions are shown side by side and are not stored until the user accepts them. A tailored CV is saved as a named variant, such as “Tailored – Role @ Company”, and does not replace the original draft. The ATS analyser can also create an adjusted variant from its suggestions. Missing keywords are suggested only when the saved CV already supports them; the rest are gaps the user can tick if they are true. The model is instructed not to invent experience, employers, dates, skills, or metrics, and the API flags wording it cannot ground in the saved CV. Each request is refused above US$0.50. A user defaults to US$2 per UTC day, and the workspace defaults to US$50 per UTC month, tracked in `ai_usage_events`. Apply `backend/migrations_sql/20261117_0004_add_cv_variants.sql` in the Supabase SQL editor before using variants.
 
 ### CV document export
 
