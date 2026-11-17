@@ -6,7 +6,7 @@ import { Sparkles } from "lucide-react";
 import { applyAcceptedSuggestions, type CvContent, type SuggestionItem } from "@/lib/cv-suggestions";
 import { workspaceFetch } from "@/lib/workspace-fetch";
 
-type JobOption = { id: number; title: string; company: string; description: string };
+type JobOption = { id: number; title: string; company: string; description: string; status?: string };
 
 type AiStatus = {
   configured: boolean;
@@ -100,11 +100,13 @@ function SuggestionCard({
 export function CvAiAssist({
   cv,
   editorBusy,
+  initialJobId = "",
   onDraftPersisted,
   onApplied,
 }: {
   cv: CvContent;
   editorBusy: boolean;
+  initialJobId?: string;
   onDraftPersisted: (cv: CvContent) => void;
   onApplied: (cv: CvContent, message: string, refreshVersions: boolean) => void;
 }) {
@@ -121,7 +123,7 @@ export function CvAiAssist({
     let active = true;
     Promise.all([
       workspaceFetch("/api/v1/cv/ai/status"),
-      workspaceFetch("/api/v1/jobs?status=saved"),
+      workspaceFetch("/api/v1/jobs?status=all"),
     ]).then(async ([statusResponse, jobsResponse]) => {
       if (!active) return;
       if (statusResponse.status === 503) {
@@ -138,13 +140,17 @@ export function CvAiAssist({
       }
       if (jobsResponse.ok) {
         const saved = await jobsResponse.json() as JobOption[];
-        if (active) setJobs(saved);
+        if (active) setJobs(saved.filter(job => job.status !== "archived"));
       }
     }).catch(() => {
       if (active) setPhase("unavailable");
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (initialJobId && jobs.some(job => String(job.id) === initialJobId)) setJobId(initialJobId);
+  }, [initialJobId, jobs]);
 
   const lines = cv.experience.split("\n").map((text, index) => ({ index, text })).filter(line => line.text.trim());
   const dailyReached = status !== null && Number(status.daily_spent_usd) >= Number(status.daily_cap_usd);
@@ -293,7 +299,7 @@ export function CvAiAssist({
   }
 
   return (
-    <section className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-5" aria-labelledby="cv-ai-heading">
+    <section id="cv-ai" className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-5" aria-labelledby="cv-ai-heading">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
           <div className="flex items-center gap-2">
@@ -323,14 +329,14 @@ export function CvAiAssist({
 
       <div className="mt-4 grid gap-5 lg:grid-cols-2">
         <div>
-          <h3 className="text-sm font-semibold">Tailor to a saved job</h3>
+          <h3 className="text-sm font-semibold">Tailor my CV for this job</h3>
           <label className="mt-2 block text-sm font-medium">Saved job
             <select className={fieldClass} value={jobId} onChange={event => setJobId(event.target.value)} disabled={!configured || editorBusy}>
               <option value="">Choose a job</option>
               {jobs.map(job => <option key={job.id} value={job.id}>{job.title}{job.company ? ` · ${job.company}` : ""}</option>)}
             </select>
           </label>
-          {jobs.length === 0 && configured ? <p className="mt-2 text-xs text-[var(--muted)]">Save a job, including its description, in <Link href="/jobs" className="font-semibold text-[var(--brand)]">Discover jobs</Link>.</p> : null}
+          {jobs.length === 0 && configured ? <p className="mt-2 text-xs text-[var(--muted)]">Find or save a job, including its description, in <Link href="/jobs" className="font-semibold text-[var(--brand)]">Discover jobs</Link>.</p> : null}
           <button type="button" onClick={() => void requestSuggestion("tailor")} disabled={!configured || dailyReached || editorBusy || busy !== null} className="mt-3 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
             {busy === "tailor" ? "Preparing suggestion…" : "Suggest a tailored CV"}
           </button>

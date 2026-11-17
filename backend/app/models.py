@@ -1,8 +1,21 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, DateTime, Index, Numeric, String, Text, Uuid, func, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -62,6 +75,14 @@ class JobListing(Base):
             sqlite_where=text("url <> ''"),
             postgresql_where=text("url <> ''"),
         ),
+        Index(
+            "job_listings_user_dedupe_unique",
+            "user_id",
+            "dedupe_key",
+            unique=True,
+            sqlite_where=text("dedupe_key <> ''"),
+            postgresql_where=text("dedupe_key <> ''"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -72,6 +93,9 @@ class JobListing(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     url: Mapped[str] = mapped_column(String(2000), default="")
     source: Mapped[str] = mapped_column(String(120), default="Manually added")
+    salary: Mapped[str] = mapped_column(String(200), default="")
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dedupe_key: Mapped[str] = mapped_column(String(400), default="")
     status: Mapped[str] = mapped_column(String(20), default="saved", index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -106,3 +130,76 @@ class AiUsageEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class JobDiscoverySettings(Base):
+    """One search profile per user for automatic job discovery."""
+
+    __tablename__ = "job_discovery_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, unique=True)
+    country: Mapped[str] = mapped_column(String(2), default="nz", nullable=False)
+    location: Mapped[str] = mapped_column(String(200), default="New Zealand", nullable=False)
+    keywords: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    remote_preference: Mapped[str] = mapped_column(String(20), default="any", nullable=False)
+    query_fingerprint: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    last_discovered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class JobProviderSetting(Base):
+    """Whether this user has turned one job provider on or off."""
+
+    __tablename__ = "job_provider_settings"
+    __table_args__ = (
+        UniqueConstraint("user_id", "provider_key", name="job_provider_settings_user_provider_unique"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
+    provider_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class JobProviderCache(Base):
+    """Shared cache of public provider listings. It stores no user content."""
+
+    __tablename__ = "job_provider_cache"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider_key",
+            "query_fingerprint",
+            name="job_provider_cache_query_unique",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    provider_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    query_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[list] = mapped_column(JSON, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class JobProviderQuota(Base):
+    """Daily call counter for an app-level provider key. It stores no user content."""
+
+    __tablename__ = "job_provider_quota"
+    __table_args__ = (
+        UniqueConstraint("provider_key", "quota_day", name="job_provider_quota_day_unique"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    provider_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    quota_day: Mapped[date] = mapped_column(Date, nullable=False)
+    request_count: Mapped[int] = mapped_column(nullable=False, default=0)

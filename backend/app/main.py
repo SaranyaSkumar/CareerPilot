@@ -6,6 +6,7 @@ from app.profile import router as profile_router
 from app.cv import router as cv_router
 from app.cv_analysis import router as cv_analysis_router
 from app.cv_ai import router as cv_ai_router
+from app.job_discovery import router as job_discovery_router
 from app.jobs import router as jobs_router
 
 app = FastAPI(
@@ -30,6 +31,7 @@ app.include_router(profile_router)
 app.include_router(cv_router)
 app.include_router(cv_analysis_router)
 app.include_router(cv_ai_router)
+app.include_router(job_discovery_router)
 app.include_router(jobs_router)
 
 

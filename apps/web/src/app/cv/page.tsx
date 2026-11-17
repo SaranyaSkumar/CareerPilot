@@ -34,6 +34,7 @@ export default function CvPage() {
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [versionBusy, setVersionBusy] = useState(false);
   const [jobDescription, setJobDescription] = useState("");
+  const [tailorJobId, setTailorJobId] = useState("");
   const [analysis, setAnalysis] = useState<AtsAnalysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const userIdRef = useRef<string | null>(null);
@@ -41,6 +42,11 @@ export default function CvPage() {
   function rememberCv(value: Cv) {
     if (userIdRef.current) writeDraft("cv", userIdRef.current, JSON.stringify(value));
   }
+
+  useEffect(() => {
+    const selected = new URLSearchParams(window.location.search).get("job") ?? "";
+    if (/^\d+$/.test(selected)) setTailorJobId(selected);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -380,6 +386,7 @@ export default function CvPage() {
 
           <CvAiAssist
             cv={cv}
+            initialJobId={tailorJobId}
             editorBusy={status === "loading" || exporting !== null || versionBusy}
             onDraftPersisted={next => {
               setCv(next);
