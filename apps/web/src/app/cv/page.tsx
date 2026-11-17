@@ -1,15 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Cloud, Download, FileUser, HardDrive, Printer, Save } from "lucide-react";
 import { CvAiAssist } from "@/components/cv-ai-assist";
+import { CvPreview } from "@/components/cv-preview";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
+import { emptyContact, type CvContact } from "@/lib/cv-layout";
 import { currentUserId, readDraft, writeDraft } from "@/lib/draft-storage";
 import { workspaceFetch } from "@/lib/workspace-fetch";
 
 type Cv = { name: string; headline: string; summary: string; experience: string; skills: string; education: string };
 type ApiCv = { id: number; name: string; headline: string; summary: string; experience: string; skills: string; education: string };
-type ApiProfile = { full_name: string; headline: string; summary: string; skills: string };
+type ApiProfile = {
+  full_name: string;
+  email?: string;
+  headline: string;
+  location?: string;
+  summary: string;
+  skills: string;
+  phone?: string;
+  website_url?: string;
+  linkedin_url?: string;
+  github_url?: string;
+};
 type CvVersion = { id: number; label: string; job_title: string; company: string; notes: string; created_at: string; snapshot: Cv };
 type AtsFinding = { code: string; severity: "info" | "warning" | "good"; title: string; detail: string };
 type AtsKeyword = { term: string; status: "matched" | "related" | "missing"; evidence: string };
@@ -25,6 +38,17 @@ function hasContent(value: Cv) {
   return Object.values(value).some(field => field.trim().length > 0);
 }
 
+function contactFromApi(profile: ApiProfile): CvContact {
+  return {
+    email: profile.email ?? "",
+    phone: profile.phone ?? "",
+    location: profile.location ?? "",
+    websiteUrl: profile.website_url ?? "",
+    linkedinUrl: profile.linkedin_url ?? "",
+    githubUrl: profile.github_url ?? "",
+  };
+}
+
 export default function CvPage() {
   const [cv, setCv] = useState<Cv>(blank);
   const [status, setStatus] = useState<"loading" | "connected" | "saving" | "saved" | "offline">("loading");
@@ -36,6 +60,7 @@ export default function CvPage() {
   const [jobDescription, setJobDescription] = useState("");
   const [analysis, setAnalysis] = useState<AtsAnalysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
+  const [contact, setContact] = useState<CvContact>(emptyContact);
   const userIdRef = useRef<string | null>(null);
 
   function rememberCv(value: Cv) {
@@ -47,10 +72,18 @@ export default function CvPage() {
     async function load() {
       userIdRef.current = await currentUserId();
       try {
-        const response = await workspaceFetch("/api/v1/cv");
+        const [response, profileResponse] = await Promise.all([
+          workspaceFetch("/api/v1/cv"),
+          workspaceFetch("/api/v1/profile"),
+        ]);
         if (!response.ok) throw new Error("CV API unavailable");
         const serverCv = fromApi(await response.json() as ApiCv);
         const localRaw = userIdRef.current ? readDraft("cv", userIdRef.current) : null;
+        let profile: ApiProfile | null = null;
+        if (profileResponse.ok) {
+          profile = await profileResponse.json() as ApiProfile;
+          if (active) setContact(contactFromApi(profile));
+        }
 
         if (!hasContent(serverCv) && localRaw) {
           try {
@@ -74,15 +107,11 @@ export default function CvPage() {
           }
         }
 
-        if (!hasContent(serverCv)) {
-          const profileResponse = await workspaceFetch("/api/v1/profile");
-          if (profileResponse.ok) {
-            const profile = await profileResponse.json() as ApiProfile;
-            serverCv.name = profile.full_name;
-            serverCv.headline = profile.headline;
-            serverCv.summary = profile.summary;
-            serverCv.skills = profile.skills;
-          }
+        if (!hasContent(serverCv) && profile) {
+          serverCv.name = profile.full_name;
+          serverCv.headline = profile.headline;
+          serverCv.summary = profile.summary;
+          serverCv.skills = profile.skills;
         }
         if (active) {
           setCv(serverCv);
@@ -91,9 +120,16 @@ export default function CvPage() {
         }
       } catch {
         const raw = userIdRef.current ? readDraft("cv", userIdRef.current) : null;
+        const profileRaw = userIdRef.current ? readDraft("profile", userIdRef.current) : null;
         if (active) {
           if (raw) {
             try { setCv({ ...blank, ...JSON.parse(raw) }); } catch { /* ignore invalid local draft */ }
+          }
+          if (profileRaw) {
+            try {
+              const local = JSON.parse(profileRaw) as Partial<CvContact>;
+              setContact({ ...emptyContact, ...local });
+            } catch { /* ignore invalid local profile */ }
           }
           setStatus("offline");
           setMessage("API unavailable. You can keep a browser copy until the API is running.");
@@ -119,13 +155,6 @@ export default function CvPage() {
     setStatus("connected");
     setMessage("");
   };
-
-  const sections = useMemo(() => [
-    { title: "Professional summary", body: cv.summary },
-    { title: "Experience", body: cv.experience },
-    { title: "Skills", body: cv.skills },
-    { title: "Education", body: cv.education },
-  ].filter(section => section.body.trim()), [cv]);
 
   async function save() {
     setStatus("saving");
@@ -409,9 +438,9 @@ export default function CvPage() {
               </div>
               {([
                 { key: "summary", label: "Professional summary", hint: "A concise overview of your experience and strengths." },
-                { key: "experience", label: "Work experience", hint: "Role, employer, dates and evidence-backed achievements." },
-                { key: "skills", label: "Skills", hint: "Relevant technical and professional skills." },
-                { key: "education", label: "Education", hint: "Qualification, institution and dates." },
+                { key: "experience", label: "Work experience", hint: "Job title | 2022-2023, then Company | Location, then lines starting with -." },
+                { key: "skills", label: "Skills", hint: "Comma-separated, or one group per line such as Languages: Python, SQL." },
+                { key: "education", label: "Education", hint: "Qualification | Institution | 2016-2019" },
               ] as const).map(section => (
                 <label key={section.key} className="mt-5 block text-sm font-medium">{section.label}<textarea className={input + " min-h-28 resize-y"} value={cv[section.key]} onChange={e => set(section.key, e.target.value)} placeholder={section.hint}/></label>
               ))}
@@ -419,12 +448,7 @@ export default function CvPage() {
 
             <section className="rounded-2xl border border-[var(--line)] bg-white p-6 print:border-0 print:p-0">
               <div className="mb-5 flex items-center justify-between"><h2 className="font-semibold">Live preview</h2><span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-xs font-medium text-[var(--brand)]">Single-column layout</span></div>
-              <article id="cv-print-area" className="mx-auto min-h-[720px] max-w-[680px] border border-[#e8e8e2] bg-white p-8 text-[#202a25] shadow-sm print:min-h-0 print:max-w-none print:border-0 print:p-0 print:shadow-none">
-                <h2 className="text-2xl font-bold tracking-tight">{cv.name || "Your Name"}</h2>
-                <p className="mt-1 text-sm font-medium text-[#315d49]">{cv.headline || "Professional Title"}</p>
-                {sections.filter(section => section.title === "Professional summary").map(section => <section key={section.title} className="mt-7"><h3 className="border-b border-[#dfe5df] pb-2 text-xs font-bold uppercase tracking-widest">{section.title}</h3><p className="mt-3 whitespace-pre-wrap text-sm leading-6">{section.body}</p></section>)}
-                {sections.filter(section => section.title !== "Professional summary").map(section => <section key={section.title} className="mt-7"><h3 className="border-b border-[#dfe5df] pb-2 text-xs font-bold uppercase tracking-widest">{section.title}</h3><p className="mt-3 whitespace-pre-wrap text-sm leading-6">{section.body}</p></section>)}
-              </article>
+              <CvPreview cv={cv} contact={contact} />
             </section>
           </div>
           <p className="mt-5 text-xs text-[var(--muted)]">Download an editable Word document or an ATS-friendly PDF. The analyser checks your structured CV content and job-description wording; it does not emulate a specific employer ATS.</p>

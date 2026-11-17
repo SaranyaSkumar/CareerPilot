@@ -17,6 +17,10 @@ class ProfilePayload(BaseModel):
     email: str = Field(default="", max_length=320)
     headline: str = Field(default="", max_length=200)
     location: str = Field(default="New Zealand", max_length=200)
+    phone: str = Field(default="", max_length=40)
+    website_url: str = Field(default="", max_length=500)
+    linkedin_url: str = Field(default="", max_length=500)
+    github_url: str = Field(default="", max_length=500)
     summary: str = Field(default="", max_length=5000)
     skills: str = Field(default="", max_length=5000)
 

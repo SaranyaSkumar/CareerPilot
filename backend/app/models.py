@@ -17,6 +17,10 @@ class CareerProfile(Base):
     email: Mapped[str] = mapped_column(String(320), default="")
     headline: Mapped[str] = mapped_column(String(200), default="")
     location: Mapped[str] = mapped_column(String(200), default="New Zealand")
+    phone: Mapped[str] = mapped_column(String(40), default="")
+    website_url: Mapped[str] = mapped_column(String(500), default="")
+    linkedin_url: Mapped[str] = mapped_column(String(500), default="")
+    github_url: Mapped[str] = mapped_column(String(500), default="")
     summary: Mapped[str] = mapped_column(Text, default="")
     skills: Mapped[str] = mapped_column(Text, default="")
 
