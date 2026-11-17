@@ -188,6 +188,31 @@ def test_migration_sql_scopes_rows_and_keeps_rls():
     assert "create_all" not in Path(__file__).resolve().parents[1].joinpath("app/main.py").read_text()
 
 
+def test_contact_migration_adds_columns_without_dropping_rls():
+    from pathlib import Path
+
+    from migrations.sql_script import split_sql
+
+    root = Path(__file__).resolve().parents[1]
+    script = (root / "migrations_sql" / "20261117_0003_add_profile_contact_fields.sql").read_text(
+        encoding="utf-8"
+    )
+    statements = split_sql(script)
+    assert any("ADD COLUMN IF NOT EXISTS phone" in statement for statement in statements)
+    for column in ("phone", "website_url", "linkedin_url", "github_url"):
+        assert column in script
+    assert "ENABLE ROW LEVEL SECURITY" in script
+    assert "DISABLE ROW LEVEL SECURITY" not in script
+    assert "DROP TABLE" not in script
+    assert "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE career_profiles TO careerpilot_app" in script
+    assert "FROM anon" in script
+    migration = (
+        root / "migrations" / "versions" / "20261117_0003_add_profile_contact_fields.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision = "20261117_0002"' in migration
+    assert "20261117_0003_add_profile_contact_fields.sql" in migration
+
+
 def test_token_signed_with_the_test_key_is_accepted():
     token = jwt.encode(
         {

@@ -9,8 +9,12 @@ import { workspaceFetch } from "@/lib/workspace-fetch";
 type Profile = {
   fullName: string;
   email: string;
+  phone: string;
   headline: string;
   location: string;
+  websiteUrl: string;
+  linkedinUrl: string;
+  githubUrl: string;
   summary: string;
   skills: string;
 };
@@ -19,8 +23,12 @@ type ApiProfile = {
   id: number;
   full_name: string;
   email: string;
+  phone?: string;
   headline: string;
   location: string;
+  website_url?: string;
+  linkedin_url?: string;
+  github_url?: string;
   summary: string;
   skills: string;
 };
@@ -28,8 +36,12 @@ type ApiProfile = {
 const emptyProfile: Profile = {
   fullName: "",
   email: "",
+  phone: "",
   headline: "",
   location: "New Zealand",
+  websiteUrl: "",
+  linkedinUrl: "",
+  githubUrl: "",
   summary: "",
   skills: "",
 };
@@ -39,8 +51,12 @@ function fromApi(value: ApiProfile): Profile {
   return {
     fullName: value.full_name,
     email: value.email,
+    phone: value.phone ?? "",
     headline: value.headline,
     location: value.location,
+    websiteUrl: value.website_url ?? "",
+    linkedinUrl: value.linkedin_url ?? "",
+    githubUrl: value.github_url ?? "",
     summary: value.summary,
     skills: value.skills,
   };
@@ -50,8 +66,12 @@ function toApi(value: Profile) {
   return {
     full_name: value.fullName,
     email: value.email,
+    phone: value.phone,
     headline: value.headline,
     location: value.location,
+    website_url: value.websiteUrl,
+    linkedin_url: value.linkedinUrl,
+    github_url: value.githubUrl,
     summary: value.summary,
     skills: value.skills,
   };
@@ -173,12 +193,16 @@ export default function ProfilePage() {
 
           <section className="mt-8 rounded-2xl border border-[var(--line)] bg-white p-6 md:p-8">
             <h2 className="font-semibold">Personal details</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">Only add details you are comfortable storing in this personal workspace.</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Only add details you are comfortable storing in this personal workspace. Phone, website, LinkedIn and GitHub are optional and print on your CV when you fill them in.</p>
             <div className="mt-6 grid gap-5 md:grid-cols-2">
-              <label className="text-sm font-medium">Full name<input className={field} value={profile.fullName} onChange={e => update("fullName", e.target.value)} placeholder="Your name" /></label>
-              <label className="text-sm font-medium">Email address<input className={field} type="email" value={profile.email} onChange={e => update("email", e.target.value)} placeholder="you@example.com" /></label>
+              <label className="text-sm font-medium">Full name<input className={field} value={profile.fullName} onChange={e => update("fullName", e.target.value)} placeholder="Your name" autoComplete="name" /></label>
+              <label className="text-sm font-medium">Email address<input className={field} type="email" value={profile.email} onChange={e => update("email", e.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
+              <label className="text-sm font-medium">Phone<input className={field} type="tel" value={profile.phone} onChange={e => update("phone", e.target.value)} placeholder="+64 21 000 0000" autoComplete="tel" /></label>
+              <label className="text-sm font-medium">Preferred location<input className={field} value={profile.location} onChange={e => update("location", e.target.value)} placeholder="e.g. Auckland, New Zealand" autoComplete="address-level2" /></label>
+              <label className="text-sm font-medium">Website<input className={field} type="url" value={profile.websiteUrl} onChange={e => update("websiteUrl", e.target.value)} placeholder="https://yoursite.example" autoComplete="url" /></label>
+              <label className="text-sm font-medium">LinkedIn<input className={field} type="url" value={profile.linkedinUrl} onChange={e => update("linkedinUrl", e.target.value)} placeholder="https://www.linkedin.com/in/your-name" /></label>
+              <label className="text-sm font-medium">GitHub<input className={field} type="url" value={profile.githubUrl} onChange={e => update("githubUrl", e.target.value)} placeholder="https://github.com/your-name" /></label>
               <label className="text-sm font-medium">Professional headline<input className={field} value={profile.headline} onChange={e => update("headline", e.target.value)} placeholder="e.g. Software Engineer" /></label>
-              <label className="text-sm font-medium">Preferred location<input className={field} value={profile.location} onChange={e => update("location", e.target.value)} placeholder="e.g. Auckland, New Zealand" /></label>
             </div>
             <div className="mt-6"><label className="text-sm font-medium">Professional summary<textarea className={field + " min-h-32 resize-y"} value={profile.summary} onChange={e => update("summary", e.target.value)} placeholder="Summarise your experience, strengths and the kind of work you do." /></label></div>
             <div className="mt-6"><label className="text-sm font-medium">Skills<textarea className={field + " min-h-24 resize-y"} value={profile.skills} onChange={e => update("skills", e.target.value)} placeholder="Type skills separated by commas" /></label><p className="mt-2 text-xs text-[var(--muted)]">Use skills you can confidently discuss and support with real experience.</p></div>

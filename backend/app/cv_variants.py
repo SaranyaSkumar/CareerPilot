@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
-from app.cv import CV_FIELDS, CvPayload
+from app.cv import CV_FIELDS, CvPayload, _contact_for_user
 from app.cv_analysis import AnalysisResponse, analyse_cv
 from app.cv_export import build_docx, build_pdf
 from app.database import get_db
@@ -262,12 +262,13 @@ def export_variant(
     if not any((getattr(variant, field) or "").strip() for field in CV_FIELDS):
         raise HTTPException(status_code=400, detail="Add some CV content before exporting.")
     safe_name = re.sub(r"[^A-Za-z0-9_-]+", "-", variant.label.strip()).strip("-") or "CareerPilot-CV"
+    contact = _contact_for_user(db, user_id)
     if format == "pdf":
-        content = build_pdf(variant)
+        content = build_pdf(variant, contact)
         media_type = "application/pdf"
         filename = f"{safe_name}.pdf"
     else:
-        content = build_docx(variant)
+        content = build_docx(variant, contact)
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         filename = f"{safe_name}.docx"
     return StreamingResponse(

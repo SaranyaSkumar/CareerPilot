@@ -288,7 +288,7 @@ def test_variant_migration_enables_rls_and_limits_authenticated_grants():
 
     from migrations.sql_script import split_sql
 
-    sql_path = Path(__file__).resolve().parents[1] / "migrations_sql" / "20261117_0003_add_cv_variants.sql"
+    sql_path = Path(__file__).resolve().parents[1] / "migrations_sql" / "20261117_0004_add_cv_variants.sql"
     script = sql_path.read_text(encoding="utf-8")
     assert split_sql(script)
     assert "DROP TABLE" not in script
@@ -300,6 +300,6 @@ def test_variant_migration_enables_rls_and_limits_authenticated_grants():
     assert "REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLE cv_variants FROM authenticated" in script
     assert "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE cv_variants TO careerpilot_app" in script
     migration = (
-        Path(__file__).resolve().parents[1] / "migrations" / "versions" / "20261117_0003_add_cv_variants.py"
+        Path(__file__).resolve().parents[1] / "migrations" / "versions" / "20261117_0004_add_cv_variants.py"
     ).read_text(encoding="utf-8")
-    assert 'down_revision = "20261117_0002"' in migration
+    assert 'down_revision = "20261117_0003"' in migration
