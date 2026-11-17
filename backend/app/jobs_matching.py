@@ -34,7 +34,7 @@ def _skill_list(value: str) -> list[str]:
 
 def analyse_job_fit(job: JobListing, profile: CareerProfile) -> dict:
     description = _normalise(f"{job.title} {job.description}")
-    candidate_skills = _skill_list(profile.skills)
+    candidate_skills = _skill_list(profile.skills or "")
     matched = [skill for skill in candidate_skills if skill in description]
     not_found = [skill for skill in candidate_skills if skill not in description]
 
@@ -55,7 +55,7 @@ def analyse_job_fit(job: JobListing, profile: CareerProfile) -> dict:
         skills_score = None
 
     headline_tokens = {
-        token for token in re.findall(r"[a-z0-9+#.]+", _normalise(profile.headline))
+        token for token in re.findall(r"[a-z0-9+#.]+", _normalise(profile.headline or ""))
         if len(token) > 2
     }
     title_tokens = {
@@ -64,7 +64,7 @@ def analyse_job_fit(job: JobListing, profile: CareerProfile) -> dict:
     }
     role_score = round(len(headline_tokens & title_tokens) / len(title_tokens) * 20) if title_tokens else 0
 
-    profile_location = _normalise(profile.location)
+    profile_location = _normalise(profile.location or "")
     job_location = _normalise(job.location)
     location_match = bool(profile_location and job_location and (
         profile_location in job_location or job_location in profile_location
@@ -84,7 +84,7 @@ def analyse_job_fit(job: JobListing, profile: CareerProfile) -> dict:
         "candidate_skills_mentioned": matched,
         "candidate_skills_not_mentioned": not_found,
         "detected_requirement_count": len(detected_requirements),
-        "profile_ready": bool(candidate_skills and profile.headline.strip()),
+        "profile_ready": bool(candidate_skills and (profile.headline or "").strip()),
         "message": (
             "Indicative rules-based comparison, not a hiring prediction. "
             "A skill not found in the description may still be relevant; unknown terms are not scored."
