@@ -6,7 +6,8 @@ import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
 
 type Cv = { name: string; headline: string; summary: string; experience: string; skills: string; education: string };
 type ApiCv = { id: number; name: string; headline: string; summary: string; experience: string; skills: string; education: string };
-type ApiProfile = { full_name: string; headline: string; summary: string; skills: string };\ntype CvVersion = { id: number; label: string; job_title: string; company: string; notes: string; created_at: string; snapshot: Cv };
+type ApiProfile = { full_name: string; headline: string; summary: string; skills: string };
+type CvVersion = { id: number; label: string; job_title: string; company: string; notes: string; created_at: string; snapshot: Cv };
 
 const blank: Cv = { name: "", headline: "", summary: "", experience: "", skills: "", education: "" };
 const input = "mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]";
@@ -22,7 +23,10 @@ export default function CvPage() {
   const [cv, setCv] = useState<Cv>(blank);
   const [status, setStatus] = useState<"loading" | "connected" | "saving" | "saved" | "offline">("loading");
   const [message, setMessage] = useState("");
-  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);\n  const [versions, setVersions] = useState<CvVersion[]>([]);\n  const [loadingVersions, setLoadingVersions] = useState(true);\n  const [versionBusy, setVersionBusy] = useState(false);
+  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
+  const [versions, setVersions] = useState<CvVersion[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(true);
+  const [versionBusy, setVersionBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -85,7 +89,17 @@ export default function CvPage() {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {\n    let active = true;\n    fetch("/api/v1/cv/versions")\n      .then(response => { if (!response.ok) throw new Error("Could not load CV versions"); return response.json() as Promise<CvVersion[]>; })\n      .then(data => { if (active) setVersions(data); })\n      .catch(() => { if (active) setMessage("CV version history is unavailable until the API is connected."); })\n      .finally(() => { if (active) setLoadingVersions(false); });\n    return () => { active = false; };\n  }, []);\n\n  const set = <K extends keyof Cv,>(key: K, value: Cv[K]) => {
+  useEffect(() => {
+    let active = true;
+    fetch("/api/v1/cv/versions")
+      .then(response => { if (!response.ok) throw new Error("Could not load CV versions"); return response.json() as Promise<CvVersion[]>; })
+      .then(data => { if (active) setVersions(data); })
+      .catch(() => { if (active) setMessage("CV version history is unavailable until the API is connected."); })
+      .finally(() => { if (active) setLoadingVersions(false); });
+    return () => { active = false; };
+  }, []);
+
+  const set = <K extends keyof Cv,>(key: K, value: Cv[K]) => {
     setCv(current => ({ ...current, [key]: value }));
     setStatus("connected");
     setMessage("");
