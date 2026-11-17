@@ -8,6 +8,7 @@ from app import models  # noqa: F401 - register ORM models before create_all
 from app.profile import router as profile_router
 from app.cv import router as cv_router
 from app.cv_analysis import router as cv_analysis_router
+from app.jobs import router as jobs_router
 
 
 @asynccontextmanager
@@ -19,7 +20,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="CareerPilot API",
-    version="0.3.0",
+    version="0.4.0",
     description="API for the CareerPilot personal career workspace.",
     lifespan=lifespan,
 )
@@ -28,13 +29,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["GET", "PUT", "POST", "OPTIONS"],
+    allow_methods=["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
 
 app.include_router(profile_router)
 app.include_router(cv_router)
 app.include_router(cv_analysis_router)
+app.include_router(jobs_router)
 
 
 @app.get("/health", tags=["system"])
@@ -44,4 +46,4 @@ def health() -> dict[str, str]:
 
 @app.get("/api/v1", tags=["system"])
 def api_root() -> dict[str, str]:
-    return {"name": "CareerPilot API", "version": "0.3.0"}
+    return {"name": "CareerPilot API", "version": "0.4.0"}

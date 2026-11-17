@@ -46,3 +46,22 @@ class CvVersion(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+class JobListing(Base):
+    __tablename__ = "job_listings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    company: Mapped[str] = mapped_column(String(200), default="")
+    location: Mapped[str] = mapped_column(String(200), default="New Zealand")
+    description: Mapped[str] = mapped_column(Text, default="")
+    url: Mapped[str] = mapped_column(String(2000), default="")
+    source: Mapped[str] = mapped_column(String(120), default="Manually added")
+    status: Mapped[str] = mapped_column(String(20), default="saved", index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
