@@ -1,4 +1,5 @@
-from sqlalchemy import String, Text
+from sqlalchemy import JSON, DateTime, String, Text, func
+from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -29,3 +30,19 @@ class CvDocument(Base):
     experience: Mapped[str] = mapped_column(Text, default="")
     skills: Mapped[str] = mapped_column(Text, default="")
     education: Mapped[str] = mapped_column(Text, default="")
+
+
+class CvVersion(Base):
+    __tablename__ = "cv_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    job_title: Mapped[str] = mapped_column(String(200), default="")
+    company: Mapped[str] = mapped_column(String(200), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )

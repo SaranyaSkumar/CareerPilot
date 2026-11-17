@@ -7,6 +7,7 @@ import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
 type Cv = { name: string; headline: string; summary: string; experience: string; skills: string; education: string };
 type ApiCv = { id: number; name: string; headline: string; summary: string; experience: string; skills: string; education: string };
 type ApiProfile = { full_name: string; headline: string; summary: string; skills: string };
+type CvVersion = { id: number; label: string; job_title: string; company: string; notes: string; created_at: string; snapshot: Cv };
 
 const blank: Cv = { name: "", headline: "", summary: "", experience: "", skills: "", education: "" };
 const input = "mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]";
@@ -23,6 +24,9 @@ export default function CvPage() {
   const [status, setStatus] = useState<"loading" | "connected" | "saving" | "saved" | "offline">("loading");
   const [message, setMessage] = useState("");
   const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
+  const [versions, setVersions] = useState<CvVersion[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(true);
+  const [versionBusy, setVersionBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -85,6 +89,16 @@ export default function CvPage() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/v1/cv/versions")
+      .then(response => { if (!response.ok) throw new Error("Could not load CV versions"); return response.json() as Promise<CvVersion[]>; })
+      .then(data => { if (active) setVersions(data); })
+      .catch(() => { if (active) setMessage("CV version history is unavailable until the API is connected."); })
+      .finally(() => { if (active) setLoadingVersions(false); });
+    return () => { active = false; };
+  }, []);
+
   const set = <K extends keyof Cv,>(key: K, value: Cv[K]) => {
     setCv(current => ({ ...current, [key]: value }));
     setStatus("connected");
@@ -117,6 +131,63 @@ export default function CvPage() {
       localStorage.setItem("careerpilot.cv", JSON.stringify(cv));
       setStatus("offline");
       setMessage(error instanceof Error ? `${error.message} A browser copy was saved instead.` : "API unavailable. A browser copy was saved instead.");
+    }
+  }
+
+  async function createVersion() {
+    if (!hasContent(cv)) {
+      setMessage("Add CV content before creating a version.");
+      return;
+    }
+    const defaultLabel = cv.headline ? `${cv.headline} – ${new Date().toLocaleDateString()}` : `CV version – ${new Date().toLocaleDateString()}`;
+    const label = window.prompt("Name this CV version", defaultLabel)?.trim();
+    if (!label) return;
+    const jobTitle = window.prompt("Target role (optional)", "")?.trim() || "";
+    const company = window.prompt("Company (optional)", "")?.trim() || "";
+    setVersionBusy(true);
+    setMessage("");
+    try {
+      const saved = await fetch("/api/v1/cv", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cv),
+      });
+      if (!saved.ok) throw new Error("Save your CV before creating a version.");
+      const response = await fetch("/api/v1/cv/versions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, job_title: jobTitle, company }),
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(detail?.detail || "Could not create this CV version.");
+      }
+      const created = await response.json() as CvVersion;
+      setVersions(current => [created, ...current]);
+      setStatus("saved");
+      setMessage("A separate, saved snapshot has been added to your CV history.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not create this CV version.");
+    } finally {
+      setVersionBusy(false);
+    }
+  }
+
+  async function restoreVersion(version: CvVersion) {
+    if (!window.confirm(`Load "${version.label}" into the editor? Your saved version will remain unchanged.`)) return;
+    setVersionBusy(true);
+    try {
+      const response = await fetch(`/api/v1/cv/versions/${version.id}/restore`, { method: "POST" });
+      if (!response.ok) throw new Error("Could not restore this CV version.");
+      const restored = fromApi(await response.json() as ApiCv);
+      setCv(restored);
+      localStorage.setItem("careerpilot.cv", JSON.stringify(restored));
+      setStatus("saved");
+      setMessage(`"${version.label}" has been loaded into the editor. The saved snapshot remains in history.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not restore this CV version.");
+    } finally {
+      setVersionBusy(false);
     }
   }
 
@@ -188,6 +259,29 @@ export default function CvPage() {
             {status === "offline" && <AlertCircle size={14}/>}
           </div>
 
+          <section className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-5">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="font-semibold">CV versions</h2>
+                <p className="mt-1 text-xs text-[var(--muted)]">Save named snapshots for different roles. Restoring loads a copy into the editor; it never edits the saved snapshot.</p>
+              </div>
+              <button onClick={() => void createVersion()} disabled={versionBusy || status === "loading" || exporting !== null} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{versionBusy ? "Working…" : "Save current as version"}</button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {loadingVersions && <p className="text-sm text-[var(--muted)]">Loading version history…</p>}
+              {!loadingVersions && versions.length === 0 && <p className="text-sm text-[var(--muted)]">No saved versions yet. Save your first snapshot when your CV is ready.</p>}
+              {versions.map(version => (
+                <div key={version.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{version.label}</p>
+                    <p className="mt-1 truncate text-xs text-[var(--muted)]">{[version.job_title, version.company].filter(Boolean).join(" · ") || "General CV"} · {new Date(version.created_at).toLocaleString()}</p>
+                  </div>
+                  <button onClick={() => void restoreVersion(version)} disabled={versionBusy} className="shrink-0 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold disabled:opacity-60">Restore</button>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <div className="mt-6 grid items-start gap-6 xl:grid-cols-[1fr_0.9fr]">
             <section className="rounded-2xl border border-[var(--line)] bg-white p-6">
               <div className="flex items-center gap-2"><FileUser className="text-[var(--brand)]" size={19}/><h2 className="font-semibold">CV content</h2></div>
@@ -216,7 +310,7 @@ export default function CvPage() {
               </article>
             </section>
           </div>
-          <p className="mt-5 text-xs text-[var(--muted)]">Download an editable Word document or an ATS-friendly PDF. Multiple templates, version history and ATS diagnostics are coming next.</p>
+          <p className="mt-5 text-xs text-[var(--muted)]">Download an editable Word document or an ATS-friendly PDF. Multiple templates and ATS diagnostics are coming next.</p>
         </div>
       </div>
     </main>

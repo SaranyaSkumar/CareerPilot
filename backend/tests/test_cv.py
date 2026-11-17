@@ -80,3 +80,49 @@ def test_cv_can_be_exported_as_pdf_and_docx():
 def test_cv_export_rejects_unsupported_format():
     response = client.post("/api/v1/cv/export?format=html")
     assert response.status_code == 422
+
+
+def test_cv_versions_are_immutable_snapshots_and_can_be_restored():
+    original = {
+        "name": "Alex Example",
+        "headline": "Backend Engineer",
+        "summary": "Builds reliable services.",
+        "experience": "Backend Engineer | Example Ltd",
+        "skills": "Python, FastAPI",
+        "education": "BSc Computer Science",
+    }
+    saved = client.put("/api/v1/cv", json=original)
+    assert saved.status_code == 200
+
+    created = client.post(
+        "/api/v1/cv/versions",
+        json={"label": "Backend role", "job_title": "Backend Engineer", "company": "Example Ltd"},
+    )
+    assert created.status_code == 201
+    version = created.json()
+    assert version["snapshot"]["headline"] == "Backend Engineer"
+
+    changed = {**original, "headline": "Platform Engineer", "skills": "Python, AWS"}
+    assert client.put("/api/v1/cv", json=changed).status_code == 200
+
+    history = client.get("/api/v1/cv/versions")
+    assert history.status_code == 200
+    matching = next(item for item in history.json() if item["id"] == version["id"])
+    assert matching["snapshot"]["headline"] == "Backend Engineer"
+    assert matching["snapshot"]["skills"] == "Python, FastAPI"
+
+    restored = client.post(f"/api/v1/cv/versions/{version['id']}/restore")
+    assert restored.status_code == 200
+    assert restored.json()["headline"] == "Backend Engineer"
+
+
+def test_cv_version_not_found_returns_404():
+    response = client.post("/api/v1/cv/versions/999999/restore")
+    assert response.status_code == 404
+
+
+def test_cv_version_requires_saved_content():
+    # Clear the singleton draft and verify empty drafts cannot be versioned.
+    client.put("/api/v1/cv", json={})
+    response = client.post("/api/v1/cv/versions", json={"label": "Empty"})
+    assert response.status_code == 400
