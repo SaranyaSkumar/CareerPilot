@@ -89,3 +89,46 @@ def test_missing_job_returns_404():
 def test_job_title_is_required():
     response = client.post("/api/v1/jobs", json={"title": "   "})
     assert response.status_code == 422
+
+
+
+def test_job_match_uses_saved_profile_and_cv_evidence():
+    from app.models import CareerProfile, CvDocument
+
+    client.put("/api/v1/profile", json={
+        "headline": "Software Engineer",
+        "location": "Auckland, New Zealand",
+        "summary": "Backend developer building cloud applications.",
+        "skills": "Python, TypeScript, AWS, PostgreSQL",
+    })
+    client.put("/api/v1/cv", json={
+        "name": "Test Candidate",
+        "headline": "Software Engineer",
+        "summary": "Builds APIs and cloud applications.",
+        "experience": "Developed Python services on AWS.",
+        "skills": "Python, TypeScript, AWS, PostgreSQL",
+        "education": "",
+    })
+    created = client.post("/api/v1/jobs", json={
+        "title": "Software Engineer",
+        "location": "Auckland, New Zealand",
+        "description": "Required: Python, TypeScript, AWS and Docker experience.",
+    })
+    result = client.get(f"/api/v1/jobs/{created.json()['id']}/match")
+    assert result.status_code == 200
+    body = result.json()
+    assert body["score"] > 0
+    assert set(body["matched_skills"]) == {"python", "typescript", "aws"}
+    assert "docker" in body["not_found_in_profile"]
+    assert body["components"][0]["out_of"] == 70
+    assert any("not proof" in item for item in body["limitations"])
+
+
+def test_job_match_handles_missing_candidate_profile_and_job_description():
+    created = client.post("/api/v1/jobs", json={"title": "Engineer"})
+    result = client.get(f"/api/v1/jobs/{created.json()['id']}/match")
+    assert result.status_code == 200
+    body = result.json()
+    assert body["score"] == 5
+    assert body["matched_skills"] == []
+    assert any("Add your verified skills" in item for item in body["limitations"])
