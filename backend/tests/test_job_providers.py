@@ -187,7 +187,10 @@ def test_public_page_parser_falls_back_to_title_and_meta_description():
 def test_discovery_sql_enforces_owner_access_and_revokes_extra_privileges():
     from pathlib import Path
 
-    script = Path("migrations_sql/20261117_0003_job_discovery.sql").read_text(encoding="utf-8")
+    script = Path("migrations_sql/20261117_0005_job_discovery.sql").read_text(encoding="utf-8")
+    migration = Path("migrations/versions/20261117_0005_job_discovery.py").read_text(encoding="utf-8")
+    assert 'revision = "20261117_0005"' in migration
+    assert 'down_revision = "20261117_0004"' in migration
     statements = split_sql(script)
     assert any("CREATE TABLE job_discovery_settings" in statement for statement in statements)
     assert any("CREATE TABLE job_provider_settings" in statement for statement in statements)

@@ -1,12 +1,12 @@
 """Add per-user job discovery settings and provider cache tables.
 
 The same change is stored as plain SQL in
-backend/migrations_sql/20261117_0003_job_discovery.sql so it can be applied in
+backend/migrations_sql/20261117_0005_job_discovery.sql so it can be applied in
 the Supabase SQL editor. Startup does not run this migration: the runtime role
 cannot create tables.
 
-Revision ID: 20261117_0003
-Revises: 20261117_0002
+Revision ID: 20261117_0005
+Revises: 20261117_0004
 Create Date: 2026-11-17
 """
 
@@ -17,13 +17,13 @@ from sqlalchemy import text
 
 from migrations.sql_script import split_sql
 
-revision = "20261117_0003"
-down_revision = "20261117_0002"
+revision = "20261117_0005"
+down_revision = "20261117_0004"
 branch_labels = None
 depends_on = None
 
 SQL_FILE = (
-    Path(__file__).resolve().parents[2] / "migrations_sql" / "20261117_0003_job_discovery.sql"
+    Path(__file__).resolve().parents[2] / "migrations_sql" / "20261117_0005_job_discovery.sql"
 )
 
 

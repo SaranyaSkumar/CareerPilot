@@ -30,6 +30,10 @@ class CareerProfile(Base):
     email: Mapped[str] = mapped_column(String(320), default="")
     headline: Mapped[str] = mapped_column(String(200), default="")
     location: Mapped[str] = mapped_column(String(200), default="New Zealand")
+    phone: Mapped[str] = mapped_column(String(40), default="")
+    website_url: Mapped[str] = mapped_column(String(500), default="")
+    linkedin_url: Mapped[str] = mapped_column(String(500), default="")
+    github_url: Mapped[str] = mapped_column(String(500), default="")
     summary: Mapped[str] = mapped_column(Text, default="")
     skills: Mapped[str] = mapped_column(Text, default="")
 
@@ -61,6 +65,47 @@ class CvVersion(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+    )
+
+
+class CvVariant(Base):
+    """A named CV kept beside the original draft.
+
+    Tailoring saves here so the master cv_documents row is left unchanged.
+    One variant per user may be marked the default.
+    """
+
+    __tablename__ = "cv_variants"
+    __table_args__ = (
+        Index("cv_variants_user_created_idx", "user_id", "created_at"),
+        Index(
+            "cv_variants_one_default_per_user",
+            "user_id",
+            unique=True,
+            sqlite_where=text("is_default = 1"),
+            postgresql_where=text("is_default"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    job_title: Mapped[str] = mapped_column(String(200), default="")
+    company: Mapped[str] = mapped_column(String(200), default="")
+    job_id: Mapped[int | None] = mapped_column(nullable=True)
+    job_description: Mapped[str] = mapped_column(Text, default="")
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    headline: Mapped[str] = mapped_column(String(200), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    experience: Mapped[str] = mapped_column(Text, default="")
+    skills: Mapped[str] = mapped_column(Text, default="")
+    education: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
 

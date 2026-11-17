@@ -108,7 +108,7 @@ export default function JobDetailPage() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setNotice(`Your current ${format.toUpperCase()} CV downloaded. Tailor it first if you want this role reflected in the file.`);
+      setNotice(`Downloaded your original ${format.toUpperCase()} CV. A tailored copy is a separate named variant in CV Studio.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "The document could not be generated.");
     } finally {
@@ -147,6 +147,7 @@ export default function JobDetailPage() {
                 <button onClick={() => void exportCv("docx")} disabled={exporting !== null} className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold disabled:opacity-60"><Download size={16} />{exporting === "docx" ? "Preparing Word…" : "Download Word"}</button>
                 {job.url && <a href={job.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--foreground)] no-underline">Original listing <ExternalLink size={15} /></a>}
               </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">Tailor my CV opens CV Studio with this job selected. Accepting the suggestion saves a named variant, such as “Tailored – {job.title}{job.company ? ` @ ${job.company}` : ""}”, and does not replace your original CV. PDF and Word here download that original CV. Export the variant from CV Studio after you save it.</p>
               {!job.description.trim() && <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">This job has no description, so CV tailoring needs one before it can run.</p>}
               {(error || notice) && <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm ${error ? "bg-red-50 text-red-700" : "bg-[var(--brand-soft)] text-[var(--brand)]"}`}>{error || notice}</p>}
 

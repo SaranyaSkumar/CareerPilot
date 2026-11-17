@@ -48,11 +48,13 @@ The web service has an internal service binding to `backend`. Vercel injects the
 
 ### Required deployment configuration
 
-Apply these scripts in the Supabase SQL editor before starting this version of the API. The API process does not create or migrate tables: the runtime role `careerpilot_app` has no `CREATE` privilege on `public`.
+Apply these scripts in the Supabase SQL editor before starting this version of the API. The API process does not create or migrate tables: the runtime role `careerpilot_app` has no `CREATE` or `ALTER` privilege on `public`.
 
 - `backend/migrations_sql/20261117_0001_add_user_scoping.sql` deletes the old sample rows and adds a `user_id` to every user-owned table.
 - `backend/migrations_sql/20261117_0002_add_ai_usage.sql` adds `ai_usage_events` for CV-writing spend caps. It does not change CV, profile, or job rows.
-- `backend/migrations_sql/20261117_0003_job_discovery.sql` adds job-discovery settings and provider cache tables, plus salary, posted date, and a dedupe key on `job_listings`. It does not delete existing jobs.
+- `backend/migrations_sql/20261117_0003_add_profile_contact_fields.sql` adds optional `phone`, `website_url`, `linkedin_url`, and `github_url` columns on `career_profiles`. It does not delete rows or turn off row level security, and it repeats the `careerpilot_app` grants.
+- `backend/migrations_sql/20261117_0004_add_cv_variants.sql` adds `cv_variants` for tailored copies that stay separate from the original CV.
+- `backend/migrations_sql/20261117_0005_job_discovery.sql` adds job-discovery settings and provider cache tables, plus salary, posted date, and a dedupe key on `job_listings`. It does not delete existing jobs.
 
 Web service (Vercel project environment, not the backend):
 
@@ -96,11 +98,11 @@ Browser drafts in local storage are keyed by the signed-in user id and cleared o
 
 ### AI CV writing
 
-CV Studio can tailor the saved CV to one of that user's jobs, or rewrite selected experience lines. Claude receives only that user's saved facts. Suggestions are shown side by side and are not stored until the user accepts them. Accepted text can also be kept as a new CV version. The model is instructed not to invent experience, employers, dates, skills, or metrics, and the API flags wording it cannot ground in the saved CV. Each request is refused above US$0.50. A user defaults to US$2 per UTC day, and the workspace defaults to US$50 per UTC month, tracked in `ai_usage_events`.
+CV Studio can tailor the saved CV to one of that user's jobs, including a job found by discovery, or rewrite selected experience lines. Claude receives only that user's saved facts. Suggestions are shown side by side and are not stored until the user accepts them. A tailored CV is saved as a named variant, such as “Tailored – Role @ Company”, and does not replace the original draft. The ATS analyser can also create an adjusted variant from its suggestions. Missing keywords are suggested only when the saved CV already supports them; the rest are gaps the user can tick if they are true. The model is instructed not to invent experience, employers, dates, skills, or metrics, and the API flags wording it cannot ground in the saved CV. Each request is refused above US$0.50. A user defaults to US$2 per UTC day, and the workspace defaults to US$50 per UTC month, tracked in `ai_usage_events`. Apply `backend/migrations_sql/20261117_0004_add_cv_variants.sql` in the Supabase SQL editor before using variants.
 
 ### CV document export
 
-CV Studio can generate an ATS-friendly, single-column PDF or editable Word document from the saved CV. The export endpoint builds each file in memory and returns it as a download; no generated CV files are persisted on the server. The export uses the facts entered in CV Studio and does not add inferred experience, skills, dates, or achievements.
+CV Studio can generate an ATS-friendly, single-column PDF or editable Word document from the saved CV. The export endpoint builds each file in memory and returns it as a download; no generated CV files are persisted on the server. The file leads with the name, headline, and one plain-text contact line taken from the career profile (email, phone, location, website, LinkedIn, and GitHub, and only the ones that are filled in). Links are printed as the visible URL. Section headings are uppercase with a line under them, each role keeps the job title and dates on one line, and skills stay on compact lines. The export uses the facts entered in CV Studio and the profile and does not add inferred experience, skills, dates, or achievements.
 
 ### CV version history
 

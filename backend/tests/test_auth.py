@@ -56,7 +56,7 @@ def test_api_root_requires_a_verified_user():
     assert anonymous.get("/api/v1").status_code == 401
     authed = client.get("/api/v1")
     assert authed.status_code == 200
-    assert authed.json()["version"] == "0.6.0"
+    assert authed.json()["version"] == "0.7.0"
 
 
 @pytest.mark.parametrize(
@@ -75,6 +75,17 @@ def test_api_root_requires_a_verified_user():
         ("GET", "/api/v1/cv/ai/status"),
         ("POST", "/api/v1/cv/ai/tailor"),
         ("POST", "/api/v1/cv/ai/improve-bullets"),
+        ("POST", "/api/v1/cv/ai/adjust"),
+        ("GET", "/api/v1/cv/variants"),
+        ("POST", "/api/v1/cv/variants"),
+        ("POST", "/api/v1/cv/variants/score"),
+        ("POST", "/api/v1/cv/variants/clear-default"),
+        ("PATCH", "/api/v1/cv/variants/1"),
+        ("DELETE", "/api/v1/cv/variants/1"),
+        ("POST", "/api/v1/cv/variants/1/duplicate"),
+        ("POST", "/api/v1/cv/variants/1/default"),
+        ("POST", "/api/v1/cv/variants/1/export?format=pdf"),
+        ("POST", "/api/v1/cv/variants/1/analyse"),
         ("GET", "/api/v1/jobs"),
         ("POST", "/api/v1/jobs"),
         ("PATCH", "/api/v1/jobs/1"),
@@ -175,6 +186,31 @@ def test_migration_sql_scopes_rows_and_keeps_rls():
     ).read_text(encoding="utf-8")
     assert "20261117_0001_add_user_scoping.sql" in migration
     assert "create_all" not in Path(__file__).resolve().parents[1].joinpath("app/main.py").read_text()
+
+
+def test_contact_migration_adds_columns_without_dropping_rls():
+    from pathlib import Path
+
+    from migrations.sql_script import split_sql
+
+    root = Path(__file__).resolve().parents[1]
+    script = (root / "migrations_sql" / "20261117_0003_add_profile_contact_fields.sql").read_text(
+        encoding="utf-8"
+    )
+    statements = split_sql(script)
+    assert any("ADD COLUMN IF NOT EXISTS phone" in statement for statement in statements)
+    for column in ("phone", "website_url", "linkedin_url", "github_url"):
+        assert column in script
+    assert "ENABLE ROW LEVEL SECURITY" in script
+    assert "DISABLE ROW LEVEL SECURITY" not in script
+    assert "DROP TABLE" not in script
+    assert "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE career_profiles TO careerpilot_app" in script
+    assert "FROM anon" in script
+    migration = (
+        root / "migrations" / "versions" / "20261117_0003_add_profile_contact_fields.py"
+    ).read_text(encoding="utf-8")
+    assert 'down_revision = "20261117_0002"' in migration
+    assert "20261117_0003_add_profile_contact_fields.sql" in migration
 
 
 def test_token_signed_with_the_test_key_is_accepted():

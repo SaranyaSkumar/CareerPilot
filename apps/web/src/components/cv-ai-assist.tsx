@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { applyAcceptedSuggestions, type CvContent, type SuggestionItem } from "@/lib/cv-suggestions";
+import { SuggestionReview, type AiResult } from "@/components/cv-suggestion-review";
+import { variantLabel, type CvContent } from "@/lib/cv-suggestions";
 import { workspaceFetch } from "@/lib/workspace-fetch";
 
 type JobOption = { id: number; title: string; company: string; description: string; status?: string };
@@ -18,26 +19,7 @@ type AiStatus = {
   monthly_spent_usd: string;
 };
 
-type AiResult = {
-  operation: "tailor" | "improve_bullets";
-  job_id: number | null;
-  job_title: string;
-  company: string;
-  items: SuggestionItem[];
-  could_not_support: string[];
-  order_changed: boolean;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-};
-
-type Review = {
-  base: CvContent;
-  result: AiResult;
-  decisions: Record<string, "accepted" | "rejected">;
-  useOrder: boolean;
-  saveVersion: boolean;
-};
+type Review = { base: CvContent; result: AiResult };
 
 const fieldClass = "mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]";
 
@@ -46,69 +28,20 @@ async function readDetail(response: Response): Promise<string> {
   return typeof body?.detail === "string" ? body.detail : "";
 }
 
-function decisionFor(decisions: Record<string, "accepted" | "rejected">, id: string): "pending" | "accepted" | "rejected" {
-  return decisions[id] ?? "pending";
-}
-
-function SuggestionCard({
-  item,
-  decision,
-  onDecision,
-}: {
-  item: SuggestionItem;
-  decision: "pending" | "accepted" | "rejected";
-  onDecision: (id: string, decision: "accepted" | "rejected") => void;
-}) {
-  const label = item.section === "summary" ? "Summary" : item.section === "skills" ? "Highlighted skill" : "Experience";
-  const unchanged = item.section !== "skills" && item.before === item.after && !item.unsupported;
-  if (unchanged) {
-    return (
-      <div className="rounded-xl border border-dashed border-[var(--line)] px-3 py-2 text-sm text-[var(--muted)]">
-        <span className="font-medium text-[var(--foreground)]">{label} kept as written. </span>
-        {item.before}
-      </div>
-    );
-  }
-  return (
-    <div className={"rounded-xl border p-3 " + (item.unsupported ? "border-amber-200 bg-amber-50" : decision === "accepted" ? "border-[var(--brand)] bg-[var(--brand-soft)]" : "border-[var(--line)] bg-white")}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</p>
-        {item.unsupported ? (
-          <p className="text-xs font-semibold text-amber-800">Can’t accept — not supported by your CV</p>
-        ) : (
-          <div className="flex gap-2">
-            <button type="button" onClick={() => onDecision(item.id, "accepted")} className="rounded-lg bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white" aria-pressed={decision === "accepted"}>Accept</button>
-            <button type="button" onClick={() => onDecision(item.id, "rejected")} className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-semibold" aria-pressed={decision === "rejected"}>Reject</button>
-          </div>
-        )}
-      </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <div>
-          <p className="text-xs font-semibold text-[var(--muted)]">Current</p>
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{item.before || "Empty"}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-[var(--muted)]">Suggestion</p>
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{item.after || "Empty"}</p>
-        </div>
-      </div>
-      {item.note ? <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{item.note}</p> : null}
-    </div>
-  );
-}
-
 export function CvAiAssist({
   cv,
   editorBusy,
   initialJobId = "",
   onDraftPersisted,
   onApplied,
+  onVariantCreated,
 }: {
   cv: CvContent;
   editorBusy: boolean;
   initialJobId?: string;
   onDraftPersisted: (cv: CvContent) => void;
   onApplied: (cv: CvContent, message: string, refreshVersions: boolean) => void;
+  onVariantCreated?: () => void;
 }) {
   const [phase, setPhase] = useState<"loading" | "unconfigured" | "ready" | "unavailable">("loading");
   const [status, setStatus] = useState<AiStatus | null>(null);
@@ -157,21 +90,6 @@ export function CvAiAssist({
   const selectedJob = jobs.find(job => String(job.id) === jobId) ?? null;
   const stale = review !== null && JSON.stringify(review.base) !== JSON.stringify(cv);
   const configured = phase === "ready";
-
-  function choose(id: string, decision: "accepted" | "rejected") {
-    setReview(current => current ? { ...current, decisions: { ...current.decisions, [id]: decision } } : current);
-  }
-
-  function acceptSupported() {
-    setReview(current => {
-      if (!current) return current;
-      const decisions = { ...current.decisions };
-      for (const item of current.result.items) {
-        if (!item.unsupported && (item.section === "skills" || item.before !== item.after)) decisions[item.id] = "accepted";
-      }
-      return { ...current, decisions };
-    });
-  }
 
   async function persistDraft(): Promise<CvContent | null> {
     const response = await workspaceFetch("/api/v1/cv", {
@@ -239,7 +157,7 @@ export function CvAiAssist({
         return;
       }
       const result = await response.json() as AiResult;
-      setReview({ base: saved, result, decisions: {}, useOrder: false, saveVersion: false });
+      setReview({ base: saved, result });
       setMessage("Review each suggestion. Nothing is saved until you accept it.");
       await refreshStatus();
     } catch {
@@ -249,19 +167,33 @@ export function CvAiAssist({
     }
   }
 
-  async function saveAccepted() {
+  async function saveAccepted(next: CvContent, saveVersion: boolean) {
     if (!review || stale) return;
-    const acceptedIds = new Set(
-      Object.entries(review.decisions).filter(([, decision]) => decision === "accepted").map(([id]) => id),
-    );
-    const next = applyAcceptedSuggestions(review.base, review.result.items, acceptedIds, review.useOrder && review.result.order_changed);
-    if (JSON.stringify(next) === JSON.stringify(review.base)) {
-      setMessage("Accept a supported suggestion before saving.");
-      return;
-    }
     setBusy("save");
     setMessage("");
     try {
+      if (review.result.operation === "tailor" || review.result.operation === "adjust") {
+        const label = variantLabel(review.result.job_title, review.result.company);
+        const response = await workspaceFetch("/api/v1/cv/variants", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...next,
+            label,
+            job_title: review.result.job_title,
+            company: review.result.company,
+            job_id: review.result.job_id,
+          }),
+        });
+        if (!response.ok) {
+          setMessage((await readDetail(response)) || "The tailored CV could not be saved.");
+          return;
+        }
+        setReview(null);
+        setMessage(`Saved “${label}” as its own CV. Your original draft was not changed.`);
+        onVariantCreated?.();
+        return;
+      }
       const response = await workspaceFetch("/api/v1/cv", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -272,25 +204,18 @@ export function CvAiAssist({
         return;
       }
       let versionNote = "";
-      if (review.saveVersion) {
-        const label = review.result.operation === "tailor"
-          ? `Tailored for ${review.result.job_title || "a role"}`.slice(0, 160)
-          : "Clearer bullet points";
+      if (saveVersion) {
         const version = await workspaceFetch("/api/v1/cv/versions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            label,
-            job_title: review.result.job_title,
-            company: review.result.company,
-          }),
+          body: JSON.stringify({ label: "Clearer bullet points" }),
         });
         versionNote = version.ok
           ? " A saved version was added as well."
           : " The draft was saved, but the version could not be created.";
       }
       setReview(null);
-      onApplied(next, `Accepted suggestions are now in your CV draft.${versionNote}`, review.saveVersion);
+      onApplied(next, `Accepted suggestions are now in your CV draft.${versionNote}`, saveVersion);
     } catch {
       setMessage("The accepted changes could not be saved.");
     } finally {
@@ -307,7 +232,7 @@ export function CvAiAssist({
             <h2 id="cv-ai-heading" className="font-semibold">AI writing help</h2>
           </div>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--muted)]">
-            Your current draft is saved first, so the suggestion uses the facts on screen. The suggestion itself stays unsaved until you accept it. Experience, employers, dates, skills, and metrics are never added for you.
+            Your current draft is saved first, so the suggestion uses the facts on screen. A tailored CV is saved as its own named variant and does not replace this draft. Bullet rewrites still update the draft, and only after you accept them.
           </p>
         </div>
       </div>
@@ -343,7 +268,7 @@ export function CvAiAssist({
         </div>
         <div>
           <h3 className="text-sm font-semibold">Improve bullet points</h3>
-          <p className="mt-1 text-xs text-[var(--muted)]">Choose lines from your saved experience. Role headings can be selected too, and dates and employers stay as you wrote them.</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">Choose lines from your original CV. Accepted rewrites update that draft. A tailored CV for a saved job, including jobs added by discovery, is stored as a separate variant.</p>
           <div className="mt-2 max-h-48 space-y-2 overflow-auto rounded-xl border border-[var(--line)] p-3">
             {lines.length === 0 ? <p className="text-sm text-[var(--muted)]">Add experience lines to rewrite them.</p> : null}
             {lines.map(line => (
@@ -367,45 +292,19 @@ export function CvAiAssist({
 
       {message ? <p className="mt-4 text-sm" role="status">{message}</p> : null}
 
-      {review && stale ? <p className="mt-4 text-sm text-amber-800">Your draft changed after this suggestion. Generate it again before accepting.</p> : null}
-
-      {review && !stale ? (
-        <div className="mt-5 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Review suggestions</h3>
-            <button type="button" onClick={acceptSupported} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-semibold">Accept supported</button>
-          </div>
-          <p className="text-xs text-[var(--muted)]">
-            {review.result.input_tokens} input tokens and {review.result.output_tokens} output tokens were used. The suggestion is not saved yet.
-          </p>
-          {review.result.could_not_support.length > 0 ? (
-            <div className="rounded-xl bg-amber-50 px-4 py-3">
-              <p className="text-sm font-semibold text-amber-950">Left out, because your CV does not say it</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-950">
-                {review.result.could_not_support.map(note => <li key={note}>{note}</li>)}
-              </ul>
-            </div>
-          ) : null}
-          {review.result.items.map(item => (
-            <SuggestionCard key={item.id} item={item} decision={decisionFor(review.decisions, item.id)} onDecision={choose} />
-          ))}
-          {review.result.order_changed ? (
-            <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" className="mt-1" checked={review.useOrder} onChange={event => setReview(current => current ? { ...current, useOrder: event.target.checked } : current)} />
-              <span>Use the suggested order of experience lines. Rejected lines keep their current wording.</span>
-            </label>
-          ) : null}
-          <label className="flex items-start gap-2 text-sm">
-            <input type="checkbox" className="mt-1" checked={review.saveVersion} onChange={event => setReview(current => current ? { ...current, saveVersion: event.target.checked } : current)} />
-            <span>Also keep a saved CV version of the accepted result.</span>
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => void saveAccepted()} disabled={busy !== null} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-              {busy === "save" ? "Saving…" : "Save accepted changes"}
-            </button>
-            <button type="button" onClick={() => { setReview(null); setMessage("Suggestions discarded. Nothing from the suggestion was saved."); }} className="rounded-xl border border-[var(--line)] px-4 py-2.5 text-sm font-semibold">Discard suggestions</button>
-          </div>
-        </div>
+      {review ? (
+        <SuggestionReview
+          key={`${review.result.operation}-${review.result.input_tokens}-${review.result.output_tokens}-${review.result.job_id ?? "pasted"}`}
+          base={review.base}
+          result={review.result}
+          stale={stale}
+          busy={busy === "save"}
+          jobDescription={review.result.operation === "improve_bullets" ? "" : (selectedJob?.description ?? "")}
+          saveLabel={review.result.operation === "improve_bullets" ? "Save accepted changes" : "Save as new CV variant"}
+          showVersionOption={review.result.operation === "improve_bullets"}
+          onSave={saveAccepted}
+          onDiscard={() => { setReview(null); setMessage("Suggestions discarded. Nothing from the suggestion was saved."); }}
+        />
       ) : null}
     </section>
   );

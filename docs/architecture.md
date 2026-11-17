@@ -63,7 +63,7 @@ Discovery runs from `POST /api/v1/jobs/discovery` (the Find jobs button) or `POS
 
 `POST /api/v1/jobs/from-link` saves a URL the user pastes. SEEK, LinkedIn, Indeed, and Trade Me pages are not downloaded; the user pastes the description. Other public http(s) pages may be fetched with a five-second timeout. Private, link-local, and credentialed URLs are refused. JSON-LD `JobPosting` is read when present.
 
-Per-user country, location, keyword override, remote preference, and provider toggles live in `job_discovery_settings` and `job_provider_settings`. The SQL is `backend/migrations_sql/20261117_0003_job_discovery.sql` (Alembic `20261117_0003`). `authenticated` keeps `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the user-owned tables, and `TRUNCATE`, `REFERENCES`, and `TRIGGER` are revoked. `anon` receives nothing. The cache and quota tables are not granted to `authenticated`.
+Per-user country, location, keyword override, remote preference, and provider toggles live in `job_discovery_settings` and `job_provider_settings`. The SQL is `backend/migrations_sql/20261117_0005_job_discovery.sql` (Alembic `20261117_0005`, after `20261117_0004`). `authenticated` keeps `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the user-owned tables, and `TRUNCATE`, `REFERENCES`, and `TRIGGER` are revoked. `anon` receives nothing. The cache and quota tables are not granted to `authenticated`.
 
 ## CV writing assistance
 
@@ -71,13 +71,15 @@ CV Studio can ask Claude to tailor the saved CV to one of the user's jobs, or to
 
 The model is instructed never to invent experience, employers, dates, skills, metrics, or achievements. The API then checks the structured result itself. A suggestion is flagged, and the UI will not accept it, when it introduces a number, month, or organisation that is not in the saved CV, when a highlighted skill is not in the saved CV, or when too little of the wording appears there. Gaps are returned as `could_not_support` rather than written into the CV.
 
-Nothing from the model is saved automatically. CV Studio shows a side-by-side diff. The user accepts or rejects each item. Only the accepted text is written, through the existing CV save route, and only if the user also asks for it is a new `cv_versions` row created.
+Nothing from the model is saved automatically. CV Studio shows a side-by-side diff. The user accepts or rejects each item and can edit the suggestion text first. A tailored or adjusted CV is stored as a `cv_variants` row, named like `Tailored – Role @ Company`, and does not replace the original draft. Variants can be listed, renamed, duplicated, deleted, marked as the default, exported, and analysed again. Missing job keywords are suggested only when the saved CV already supports them. Other missing keywords are listed as gaps the user can tick if they are true. The original ATS alignment score is shown next to the score for the accepted variant.
+
+`cv_versions` remains the immutable snapshot history of the original draft. Bullet rewrites still update that draft after acceptance.
 
 `GET /api/v1/cv/ai/status`, `POST /api/v1/cv/ai/tailor`, and `POST /api/v1/cv/ai/improve-bullets` all require the same Supabase access token as the rest of `/api/v1`. With no `ANTHROPIC_API_KEY`, those routes return 503 and the buttons show “AI not configured”.
 
 Spend is capped before the call. Input tokens are estimated from the prompt (characters divided by 3, plus framing) and output tokens are the request's `max_tokens`. The published per-million rate for the configured model prices that pair. A request whose estimate is above US$0.50 is refused. `max_tokens` is capped at 4096 for tailoring and 2048 for bullet rewrites. A per-user UTC-day total defaults to US$2 (`ANTHROPIC_DAILY_USER_CAP_USD`). An app-wide UTC-month total defaults to US$50 (`ANTHROPIC_MONTHLY_CAP_USD`). Both are recorded in `ai_usage_events`: a row is reserved at the estimate before the call and completed with the provider's actual token counts. Logs contain the user id, operation, model, token counts, and cost. They do not contain CV or job text.
 
-The table is added by `backend/migrations_sql/20261117_0002_add_ai_usage.sql` and Alembic revision `20261117_0002`. The API process does not run it. `careerpilot_app` cannot create tables, so the SQL has to be applied by a role that can.
+`ai_usage_events` is added by `backend/migrations_sql/20261117_0002_add_ai_usage.sql`. Profile contact columns are added by `backend/migrations_sql/20261117_0003_add_profile_contact_fields.sql`. `cv_variants` is added by `backend/migrations_sql/20261117_0004_add_cv_variants.sql`. Alembic revisions `20261117_0002`, `20261117_0003`, and `20261117_0004` match those scripts. Job discovery is `20261117_0005`. The API process does not run them. `careerpilot_app` cannot create tables, so the SQL has to be applied by a role that can. `POST /api/v1/cv/ai/adjust` uses the same cap and grounding rules for a pasted job description or a saved job.
 
 ## Trust and safety controls
 - Treat job descriptions, imported documents, and external page content as untrusted data, never as instructions.
