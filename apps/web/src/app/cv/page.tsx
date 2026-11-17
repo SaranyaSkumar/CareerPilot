@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Cloud, FileUser, HardDrive, Printer, Save } from "lucide-react";
+import { AlertCircle, Cloud, Download, FileUser, HardDrive, Printer, Save } from "lucide-react";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
 
 type Cv = { name: string; headline: string; summary: string; experience: string; skills: string; education: string };
@@ -21,7 +21,7 @@ function hasContent(value: Cv) {
 export default function CvPage() {
   const [cv, setCv] = useState<Cv>(blank);
   const [status, setStatus] = useState<"loading" | "connected" | "saving" | "saved" | "offline">("loading");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("");\n  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -119,6 +119,45 @@ export default function CvPage() {
     }
   }
 
+  async function exportCv(format: "pdf" | "docx") {
+    setExporting(format);
+    setMessage("");
+    try {
+      // Persist the current editor state first so the downloaded file is never stale.
+      const savedResponse = await fetch("/api/v1/cv", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cv),
+      });
+      if (!savedResponse.ok) throw new Error("Save your CV before exporting.");
+      const saved = fromApi(await savedResponse.json() as ApiCv);
+      setCv(saved);
+      localStorage.setItem("careerpilot.cv", JSON.stringify(saved));
+
+      const response = await fetch(`/api/v1/cv/export?format=${format}`, { method: "POST" });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(detail?.detail || "The document could not be generated.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `CareerPilot-CV.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus("saved");
+      setMessage(`Your ${format.toUpperCase()} CV is ready.`);
+    } catch (error) {
+      setStatus("offline");
+      setMessage(error instanceof Error ? error.message : "The document could not be generated.");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
     <main className="min-h-screen">
       <WorkspaceNav active="/cv" />
@@ -131,9 +170,11 @@ export default function CvPage() {
               <h1 className="mt-1 text-3xl font-semibold tracking-tight">CV Studio</h1>
               <p className="mt-2 text-sm text-[var(--muted)]">Build a clear, ATS-friendly CV from your verified experience.</p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={save} disabled={status === "saving" || status === "loading"} className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"><Save size={16}/>{status === "saving" ? "Saving…" : "Save draft"}</button>
-              <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold"><Printer size={16}/>Print / PDF</button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={save} disabled={status === "saving" || status === "loading" || exporting !== null} className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"><Save size={16}/>{status === "saving" ? "Saving…" : "Save draft"}</button>
+              <button onClick={() => void exportCv("pdf")} disabled={status === "loading" || exporting !== null} className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold disabled:opacity-60"><Download size={16}/>{exporting === "pdf" ? "Preparing PDF…" : "Download PDF"}</button>
+              <button onClick={() => void exportCv("docx")} disabled={status === "loading" || exporting !== null} className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold disabled:opacity-60"><Download size={16}/>{exporting === "docx" ? "Preparing Word…" : "Download Word"}</button>
+              <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold"><Printer size={16}/>Print</button>
             </div>
           </div>
 
@@ -174,7 +215,7 @@ export default function CvPage() {
               </article>
             </section>
           </div>
-          <p className="mt-5 text-xs text-[var(--muted)]">This is an early CV editor. DOCX export, downloadable PDF generation, multiple templates, version history and ATS diagnostics are upcoming; browser printing is a temporary PDF workaround.</p>
+          <p className="mt-5 text-xs text-[var(--muted)]">Download an editable Word document or an ATS-friendly PDF. Multiple templates, version history and ATS diagnostics are coming next.</p>
         </div>
       </div>
     </main>
