@@ -151,7 +151,7 @@ export default function CvPage() {
       setStatus("saved");
       setMessage(`Your ${format.toUpperCase()} CV is ready.`);
     } catch (error) {
-      setStatus("offline");
+      setStatus("connected");
       setMessage(error instanceof Error ? error.message : "The document could not be generated.");
     } finally {
       setExporting(null);
