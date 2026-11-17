@@ -33,12 +33,12 @@ from reportlab.platypus import (
     Spacer,
 )
 
-BRAND = colors.HexColor("#174c3a")
-INK = colors.HexColor("#26302a")
-MUTED = colors.HexColor("#4b5b51")
-BRAND_RGB = RGBColor(0x17, 0x4C, 0x3A)
-INK_RGB = RGBColor(0x26, 0x30, 0x2A)
-MUTED_RGB = RGBColor(0x4B, 0x5B, 0x51)
+BRAND = colors.HexColor("#172B4D")
+INK = colors.HexColor("#263445")
+MUTED = colors.HexColor("#52647A")
+BRAND_RGB = RGBColor(0x17, 0x2B, 0x4D)
+INK_RGB = RGBColor(0x26, 0x34, 0x45)
+MUTED_RGB = RGBColor(0x52, 0x64, 0x7A)
 
 SECTIONS = (
     ("Professional Summary", "summary"),
