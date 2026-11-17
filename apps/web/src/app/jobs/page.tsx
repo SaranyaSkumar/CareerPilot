@@ -55,7 +55,8 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");\n  const [matches, setMatches] = useState<Record<number, MatchResult>>({});\n  const [matchingId, setMatchingId] = useState<number | null>(null);
+  const [notice, setNotice] = useState("");
+  const [matches, setMatches] = useState<Record<number, MatchResult>>({});\n  const [matchingId, setMatchingId] = useState<number | null>(null);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
