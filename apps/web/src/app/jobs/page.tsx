@@ -224,6 +224,18 @@ export default function JobsPage() {
                     <button onClick={() => void removeJob(job)} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={13}/>Delete</button>
                   </div>
                 </div>
+                {matches[job.id] && <div className="mt-5 rounded-xl bg-[var(--background)] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Your job fit review</h3>
+                    <span className="text-sm font-semibold text-[var(--brand)]">{matches[job.id].score === null ? "Not enough detail to score" : `${matches[job.id].score}/100 indicative match`}</span>
+                  </div>
+                  {!matches[job.id].profile_ready && <p className="mt-2 text-xs text-amber-700">Add your professional headline and skills to Career Profile for a more useful comparison.</p>}
+                  {matches[job.id].detected_requirement_count === 0 ? <p className="mt-2 text-sm text-[var(--muted)]">No recognised skills were found in this description, so CareerPilot has not invented a score.</p> : <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div><p className="text-xs font-semibold text-[var(--muted)]">Found in your profile</p><p className="mt-1 text-sm">{matches[job.id].matched_skills.length ? matches[job.id].matched_skills.join(", ") : "No recognised matches yet"}</p></div>
+                    <div><p className="text-xs font-semibold text-[var(--muted)]">Not found in your profile</p><p className="mt-1 text-sm">{matches[job.id].not_found_skills.length ? matches[job.id].not_found_skills.join(", ") : "None from the recognised terms"}</p></div>
+                  </div>}
+                  <p className="mt-3 text-xs leading-5 text-[var(--muted)]">{matches[job.id].message} “Not found” does not mean you lack a skill.</p>
+                </div>}
               </article>)
             }
           </div>
