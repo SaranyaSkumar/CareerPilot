@@ -21,7 +21,8 @@ function hasContent(value: Cv) {
 export default function CvPage() {
   const [cv, setCv] = useState<Cv>(blank);
   const [status, setStatus] = useState<"loading" | "connected" | "saving" | "saved" | "offline">("loading");
-  const [message, setMessage] = useState("");\n  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
+  const [message, setMessage] = useState("");
+  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
 
   useEffect(() => {
     let active = true;
