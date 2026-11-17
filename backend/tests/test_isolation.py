@@ -161,3 +161,21 @@ def test_jobs_are_private_including_guessed_ids():
     assert client_b.patch(f"/api/v1/jobs/{job_id}", json={"status": "archived"}).status_code == 404
     assert client_b.patch("/api/v1/jobs/999999", json={"status": "archived"}).status_code == 404
     assert client_b.delete("/api/v1/jobs/999999").status_code == 404
+
+    client_a.put("/api/v1/profile", json={
+        "headline": "Software Engineer",
+        "location": "Auckland, New Zealand",
+        "skills": "Python, AWS",
+    })
+    client_b.put("/api/v1/profile", json={
+        "headline": "Designer",
+        "location": "Wellington",
+        "skills": "Figma",
+    })
+    hidden_match = client_b.get(f"/api/v1/jobs/{job_id}/match")
+    assert hidden_match.status_code == 404
+    own_match = client_a.get(f"/api/v1/jobs/{job_id}/match")
+    assert own_match.status_code == 200
+    compared = own_match.json()["candidate_skills_mentioned"] + own_match.json()["candidate_skills_not_mentioned"]
+    assert "python" in compared
+    assert "figma" not in compared

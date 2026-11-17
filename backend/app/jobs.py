@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
 from app.database import get_db
-from app.models import JobListing
+from app.jobs_matching import analyse_job_fit
+from app.models import CareerProfile, JobListing
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["job discovery"])
 
@@ -114,6 +115,19 @@ def create_job(
         raise HTTPException(status_code=409, detail="This job URL is already in your saved jobs.") from None
     db.refresh(job)
     return job
+
+
+@router.get("/{job_id}/match")
+def match_job(
+    job_id: int,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    job = _own_job(db, user_id, job_id)
+    profile = db.query(CareerProfile).filter(CareerProfile.user_id == user_id).one_or_none()
+    if profile is None:
+        profile = CareerProfile(user_id=user_id)
+    return analyse_job_fit(job, profile)
 
 
 @router.patch("/{job_id}", response_model=JobResponse)

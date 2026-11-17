@@ -76,6 +76,7 @@ def test_api_root_requires_a_verified_user():
         ("POST", "/api/v1/jobs"),
         ("PATCH", "/api/v1/jobs/1"),
         ("DELETE", "/api/v1/jobs/1"),
+        ("GET", "/api/v1/jobs/1/match"),
     ],
 )
 def test_missing_token_is_401(method, path):

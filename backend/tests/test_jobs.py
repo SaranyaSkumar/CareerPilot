@@ -5,8 +5,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
-from app.models import JobListing
+from app.models import CareerProfile, JobListing
 from tests.api_client import AuthClient
+from tests.jwt_support import DEFAULT_USER_ID
 
 engine = create_engine(
     "sqlite://",
@@ -35,6 +36,7 @@ def isolate_jobs_database():
     app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     db.query(JobListing).delete()
+    db.query(CareerProfile).delete()
     db.commit()
     db.close()
 
@@ -89,3 +91,37 @@ def test_missing_job_returns_404():
 def test_job_title_is_required():
     response = client.post("/api/v1/jobs", json={"title": "   "})
     assert response.status_code == 422
+
+
+
+def test_job_match_endpoint_uses_saved_career_profile():
+    db = TestingSessionLocal()
+    db.add(CareerProfile(
+        user_id=DEFAULT_USER_ID,
+        headline="Software Engineer",
+        location="Auckland, New Zealand",
+        skills="Python, AWS, React",
+    ))
+    job = JobListing(
+        user_id=DEFAULT_USER_ID,
+        title="Software Engineer",
+        company="Example",
+        location="Auckland",
+        description="Build APIs using Python and AWS. Docker experience is useful.",
+        url="",
+        source="Manual",
+        status="saved",
+    )
+    db.add(job)
+    db.commit()
+    job_id = job.id
+    db.close()
+
+    response = client.get(f"/api/v1/jobs/{job_id}/match")
+
+    assert response.status_code == 200
+    result = response.json()
+    assert "python" in result["matched_skills"]
+    assert "aws" in result["matched_skills"]
+    assert "docker" in result["not_found_skills"]
+    assert result["score"] is not None
