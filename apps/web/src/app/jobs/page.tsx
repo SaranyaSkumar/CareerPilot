@@ -20,6 +20,15 @@ type Job = {
   updated_at: string;
 };
 
+type MatchResult = {
+  score: number;
+  label: string;
+  components: { name: string; score: number; out_of: number; detail: string }[];
+  matched_skills: string[];
+  not_found_in_profile: string[];
+  limitations: string[];
+};
+
 type JobDraft = {
   title: string;
   company: string;
@@ -46,7 +55,7 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState("");\n  const [matches, setMatches] = useState<Record<number, MatchResult>>({});\n  const [matchingId, setMatchingId] = useState<number | null>(null);
 
   const loadJobs = useCallback(async () => {
     setLoading(true);
@@ -110,6 +119,21 @@ export default function JobsPage() {
       await loadJobs();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update this job.");
+    }
+  }
+
+  async function matchJob(job: Job) {
+    setMatchingId(job.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/v1/jobs/${job.id}/match`, { cache: "no-store" });
+      const body = await response.json().catch(() => null) as MatchResult | { detail?: string } | null;
+      if (!response.ok) throw new Error(body && "detail" in body ? body.detail || "Could not compare this job." : "Could not compare this job.");
+      setMatches(current => ({ ...current, [job.id]: body as MatchResult }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not compare this job.");
+    } finally {
+      setMatchingId(null);
     }
   }
 
@@ -190,6 +214,16 @@ export default function JobsPage() {
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]"><span className="inline-flex items-center gap-1.5"><Building2 size={14}/>{job.company || "Company not specified"}</span><span className="inline-flex items-center gap-1.5"><MapPin size={14}/>{job.location}</span></div>
                     {job.description && <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-600">{job.description.length > 420 ? job.description.slice(0, 420).trimEnd() + "…" : job.description}</p>}
                     <p className="mt-3 text-xs text-[var(--muted)]">Added {new Date(job.created_at).toLocaleDateString()}</p>
+                    <div className="mt-4">
+                      <button onClick={() => void matchJob(job)} disabled={matchingId === job.id} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--brand)] disabled:opacity-60">{matchingId === job.id ? "Comparing…" : matches[job.id] ? "Refresh match" : "Compare with my profile"}</button>
+                      {matches[job.id] && <div className="mt-3 rounded-xl bg-[var(--background)] p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Indicative match</p><p className="mt-1 text-sm font-semibold">{matches[job.id].label}</p></div><p className="text-2xl font-semibold tabular-nums">{matches[job.id].score}<span className="text-sm text-[var(--muted)]">/100</span></p></div>
+                        <div className="mt-3 space-y-2">{matches[job.id].components.map(item => <div key={item.name}><div className="flex justify-between gap-3 text-xs"><span className="font-medium">{item.name}</span><span className="tabular-nums text-[var(--muted)]">{item.score}/{item.out_of}</span></div><p className="mt-0.5 text-xs leading-5 text-[var(--muted)]">{item.detail}</p></div>)}</div>
+                        {matches[job.id].matched_skills.length > 0 && <p className="mt-3 text-xs"><span className="font-semibold">Found in your profile/CV:</span> {matches[job.id].matched_skills.join(", ")}</p>}
+                        {matches[job.id].not_found_in_profile.length > 0 && <p className="mt-2 text-xs"><span className="font-semibold">Not found in saved profile/CV:</span> {matches[job.id].not_found_in_profile.join(", ")}</p>}
+                        <ul className="mt-3 list-disc space-y-1 pl-4 text-[11px] leading-4 text-[var(--muted)]">{matches[job.id].limitations.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                      </div>}
+                    </div>
                   </div>
                   <div className="flex shrink-0 flex-row flex-wrap items-start gap-2 sm:flex-col">
                     {job.url && <a href={job.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] no-underline hover:bg-[var(--background)]">Original listing <ExternalLink size={13}/></a>}
