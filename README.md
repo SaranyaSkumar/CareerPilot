@@ -45,3 +45,8 @@ This is still a personal-development API with a singleton profile/CV and no auth
 ### CV document export
 
 CV Studio can generate an ATS-friendly, single-column PDF or editable Word document from the saved CV. The export endpoint builds each file in memory and returns it as a download; no generated CV files are persisted on the server. The export uses the facts entered in CV Studio and does not add inferred experience, skills, dates, or achievements.
+
+
+### CV version history
+
+CV Studio can save named, immutable snapshots of the current CV draft, optionally tagged with a target role and company. The version list is newest-first. Restoring a snapshot copies its content back into the active CV editor; the saved snapshot remains unchanged. PDF and Word export continue to use the active CV draft, so restore the intended version before exporting it.
