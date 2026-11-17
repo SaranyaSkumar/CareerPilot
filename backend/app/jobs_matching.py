@@ -17,11 +17,11 @@ KNOWN_SKILLS = {
 
 
 def _normalise(value: str) -> str:
-    return re.sub(r"\\s+", " ", value.casefold()).strip()
+    return re.sub(r"\s+", " ", value.casefold()).strip()
 
 
 def _skill_list(value: str) -> list[str]:
-    parts = re.split(r"[,;\\n|]+", value or "")
+    parts = re.split(r"[,;\n|]+", value or "")
     result = []
     seen = set()
     for part in parts:
