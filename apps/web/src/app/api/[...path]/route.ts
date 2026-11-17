@@ -1,8 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 const BACKEND_URL = process.env.CAREERPILOT_BACKEND_URL?.replace(/\/$/, "");
+
+async function accessToken(): Promise<{ token: string } | { error: NextResponse }> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return {
+      error: NextResponse.json({ detail: "Authentication is not configured." }, { status: 503 }),
+    };
+  }
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims?.sub) {
+    return { error: NextResponse.json({ detail: "Not authenticated." }, { status: 401 }) };
+  }
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) {
+    return { error: NextResponse.json({ detail: "Not authenticated." }, { status: 401 }) };
+  }
+  return { token };
+}
 
 async function proxy(request: NextRequest, path: string[]) {
   if (!BACKEND_URL) {
@@ -12,9 +32,13 @@ async function proxy(request: NextRequest, path: string[]) {
     );
   }
 
+  const session = await accessToken();
+  if ("error" in session) return session.error;
+
   const pathname = path.map(segment => encodeURIComponent(segment)).join("/");
   const target = `${BACKEND_URL}/api/${pathname}${request.nextUrl.search}`;
   const headers = new Headers();
+  headers.set("authorization", `Bearer ${session.token}`);
   const contentType = request.headers.get("content-type");
   const accept = request.headers.get("accept");
   if (contentType) headers.set("content-type", contentType);

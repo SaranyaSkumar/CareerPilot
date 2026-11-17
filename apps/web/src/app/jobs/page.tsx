@@ -6,6 +6,7 @@ import {
   MapPin, Plus, Search, Trash2, X,
 } from "lucide-react";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
+import { workspaceFetch } from "@/lib/workspace-fetch";
 
 type Job = {
   id: number;
@@ -53,7 +54,7 @@ export default function JobsPage() {
     setError("");
     try {
       const params = new URLSearchParams({ q: query, location, status: filter });
-      const response = await fetch(`/api/v1/jobs?${params.toString()}`, { cache: "no-store" });
+      const response = await workspaceFetch(`/api/v1/jobs?${params.toString()}`);
       if (!response.ok) throw new Error("Could not load your saved jobs.");
       setJobs(await response.json() as Job[]);
     } catch (err) {
@@ -76,7 +77,7 @@ export default function JobsPage() {
     setError("");
     setNotice("");
     try {
-      const response = await fetch("/api/v1/jobs", {
+      const response = await workspaceFetch("/api/v1/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
@@ -100,7 +101,7 @@ export default function JobsPage() {
   async function changeStatus(job: Job, status: "saved" | "archived") {
     setError("");
     try {
-      const response = await fetch(`/api/v1/jobs/${job.id}`, {
+      const response = await workspaceFetch(`/api/v1/jobs/${job.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -116,7 +117,7 @@ export default function JobsPage() {
   async function removeJob(job: Job) {
     if (!window.confirm(`Delete "${job.title}" from CareerPilot?`)) return;
     try {
-      const response = await fetch(`/api/v1/jobs/${job.id}`, { method: "DELETE" });
+      const response = await workspaceFetch(`/api/v1/jobs/${job.id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Could not delete this job.");
       setNotice("Job deleted.");
       await loadJobs();

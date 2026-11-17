@@ -1,5 +1,4 @@
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -7,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.models import JobListing
+from tests.api_client import AuthClient
 
 engine = create_engine(
     "sqlite://",
@@ -25,7 +25,7 @@ def override_get_db():
         db.close()
 
 
-client = TestClient(app)
+client = AuthClient(app)
 
 
 @pytest.fixture(autouse=True)

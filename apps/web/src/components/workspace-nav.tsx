@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BriefcaseBusiness, FileUser, Gauge, Search, Target, TrendingUp } from "lucide-react";
+import { AccountMenu } from "@/components/account-menu";
 
 const items = [
   { href: "/", label: "Overview", icon: Gauge },
@@ -30,5 +31,11 @@ export function WorkspaceNav({ active }: { active: string }) {
 }
 
 export function WorkspaceHeader() {
-  return <header className="flex h-[76px] items-center justify-between border-b border-[var(--line)] bg-white/80 px-6 backdrop-blur md:px-10"><Link href="/" className="font-bold text-[var(--brand)] no-underline lg:hidden">CareerPilot</Link><span className="hidden text-sm text-[var(--muted)] lg:block">Your personal career workspace</span><span className="text-sm text-slate-600">Personal workspace</span></header>;
+  return (
+    <header className="flex h-[76px] items-center justify-between border-b border-[var(--line)] bg-white/80 px-6 backdrop-blur md:px-10">
+      <Link href="/" className="font-bold text-[var(--brand)] no-underline lg:hidden">CareerPilot</Link>
+      <span className="hidden text-sm text-[var(--muted)] lg:block">Your personal career workspace</span>
+      <AccountMenu />
+    </header>
+  );
 }

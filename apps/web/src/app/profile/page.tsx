@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Save, UserRound, Cloud, HardDrive, AlertCircle } from "lucide-react";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
+import { currentUserId, readDraft, writeDraft } from "@/lib/draft-storage";
+import { workspaceFetch } from "@/lib/workspace-fetch";
 
 type Profile = {
   fullName: string;
@@ -63,23 +65,26 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile>(emptyProfile);
   const [status, setStatus] = useState<"loading" | "connected" | "offline" | "saving" | "saved" | "error">("loading");
   const [message, setMessage] = useState("");
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
     async function load() {
+      const userId = await currentUserId();
+      userIdRef.current = userId;
       try {
-        const response = await fetch("/api/v1/profile");
+        const response = await workspaceFetch("/api/v1/profile");
         if (!response.ok) throw new Error("The profile API could not be reached.");
         const serverProfile = fromApi(await response.json() as ApiProfile);
-        const localRaw = window.localStorage.getItem("careerpilot.profile");
+        const localRaw = userId ? readDraft("profile", userId) : null;
 
         // Migrate an existing browser-only draft once, but never overwrite a populated server profile.
         if (!hasContent(serverProfile) && localRaw) {
           try {
             const localProfile = { ...emptyProfile, ...JSON.parse(localRaw) } as Profile;
             if (hasContent(localProfile)) {
-              const migrated = await fetch("/api/v1/profile", {
+              const migrated = await workspaceFetch("/api/v1/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(toApi(localProfile)),
@@ -103,7 +108,7 @@ export default function ProfilePage() {
           setMessage("");
         }
       } catch {
-        const raw = window.localStorage.getItem("careerpilot.profile");
+        const raw = userIdRef.current ? readDraft("profile", userIdRef.current) : null;
         if (active) {
           if (raw) {
             try { setProfile({ ...emptyProfile, ...JSON.parse(raw) }); } catch { /* ignore invalid local draft */ }
@@ -128,7 +133,7 @@ export default function ProfilePage() {
     setStatus("saving");
     setMessage("");
     try {
-      const response = await fetch("/api/v1/profile", {
+      const response = await workspaceFetch("/api/v1/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(toApi(profile)),
@@ -139,11 +144,11 @@ export default function ProfilePage() {
       }
       const saved = fromApi(await response.json() as ApiProfile);
       setProfile(saved);
-      window.localStorage.setItem("careerpilot.profile", JSON.stringify(saved));
+      if (userIdRef.current) writeDraft("profile", userIdRef.current, JSON.stringify(saved));
       setStatus("saved");
       setMessage("Profile saved to your CareerPilot database.");
     } catch (error) {
-      window.localStorage.setItem("careerpilot.profile", JSON.stringify(profile));
+      if (userIdRef.current) writeDraft("profile", userIdRef.current, JSON.stringify(profile));
       setStatus("offline");
       setMessage(error instanceof Error ? `${error.message} A browser copy was saved instead.` : "API unavailable. A browser copy was saved instead.");
     }
@@ -188,7 +193,7 @@ export default function ProfilePage() {
             {message && <p role="status" className="mt-3 text-sm text-[var(--muted)]">{message}</p>}
           </section>
 
-          <p className="mt-4 text-xs leading-5 text-[var(--muted)]">Personal development build: the API currently stores one local profile and does not yet have user authentication. Keep the API private and do not deploy it publicly until authentication and per-user access controls are implemented.</p>
+          <p className="mt-4 text-xs leading-5 text-[var(--muted)]">This profile is stored for your signed-in account only. CareerPilot does not share it with other users.</p>
         </div>
       </div>
     </main>

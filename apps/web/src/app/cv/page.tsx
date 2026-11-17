@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Cloud, Download, FileUser, HardDrive, Printer, Save } from "lucide-react";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
+import { currentUserId, readDraft, writeDraft } from "@/lib/draft-storage";
+import { workspaceFetch } from "@/lib/workspace-fetch";
 
 type Cv = { name: string; headline: string; summary: string; experience: string; skills: string; education: string };
 type ApiCv = { id: number; name: string; headline: string; summary: string; experience: string; skills: string; education: string };
@@ -33,21 +35,27 @@ export default function CvPage() {
   const [jobDescription, setJobDescription] = useState("");
   const [analysis, setAnalysis] = useState<AtsAnalysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
+  const userIdRef = useRef<string | null>(null);
+
+  function rememberCv(value: Cv) {
+    if (userIdRef.current) writeDraft("cv", userIdRef.current, JSON.stringify(value));
+  }
 
   useEffect(() => {
     let active = true;
     async function load() {
+      userIdRef.current = await currentUserId();
       try {
-        const response = await fetch("/api/v1/cv");
+        const response = await workspaceFetch("/api/v1/cv");
         if (!response.ok) throw new Error("CV API unavailable");
         const serverCv = fromApi(await response.json() as ApiCv);
-        const localRaw = localStorage.getItem("careerpilot.cv");
+        const localRaw = userIdRef.current ? readDraft("cv", userIdRef.current) : null;
 
         if (!hasContent(serverCv) && localRaw) {
           try {
             const localCv = { ...blank, ...JSON.parse(localRaw) } as Cv;
             if (hasContent(localCv)) {
-              const migrated = await fetch("/api/v1/cv", {
+              const migrated = await workspaceFetch("/api/v1/cv", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(localCv),
@@ -66,7 +74,7 @@ export default function CvPage() {
         }
 
         if (!hasContent(serverCv)) {
-          const profileResponse = await fetch("/api/v1/profile");
+          const profileResponse = await workspaceFetch("/api/v1/profile");
           if (profileResponse.ok) {
             const profile = await profileResponse.json() as ApiProfile;
             serverCv.name = profile.full_name;
@@ -81,7 +89,7 @@ export default function CvPage() {
           setMessage("");
         }
       } catch {
-        const raw = localStorage.getItem("careerpilot.cv");
+        const raw = userIdRef.current ? readDraft("cv", userIdRef.current) : null;
         if (active) {
           if (raw) {
             try { setCv({ ...blank, ...JSON.parse(raw) }); } catch { /* ignore invalid local draft */ }
@@ -97,7 +105,7 @@ export default function CvPage() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/v1/cv/versions")
+    workspaceFetch("/api/v1/cv/versions")
       .then(response => { if (!response.ok) throw new Error("Could not load CV versions"); return response.json() as Promise<CvVersion[]>; })
       .then(data => { if (active) setVersions(data); })
       .catch(() => { if (active) setMessage("CV version history is unavailable until the API is connected."); })
@@ -122,7 +130,7 @@ export default function CvPage() {
     setStatus("saving");
     setMessage("");
     try {
-      const response = await fetch("/api/v1/cv", {
+      const response = await workspaceFetch("/api/v1/cv", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cv),
@@ -130,11 +138,11 @@ export default function CvPage() {
       if (!response.ok) throw new Error("The CV draft could not be saved.");
       const saved = fromApi(await response.json() as ApiCv);
       setCv(saved);
-      localStorage.setItem("careerpilot.cv", JSON.stringify(saved));
+      rememberCv(saved);
       setStatus("saved");
       setMessage("CV draft saved to your CareerPilot database.");
     } catch (error) {
-      localStorage.setItem("careerpilot.cv", JSON.stringify(cv));
+      rememberCv(cv);
       setStatus("offline");
       setMessage(error instanceof Error ? `${error.message} A browser copy was saved instead.` : "API unavailable. A browser copy was saved instead.");
     }
@@ -153,13 +161,13 @@ export default function CvPage() {
     setVersionBusy(true);
     setMessage("");
     try {
-      const saved = await fetch("/api/v1/cv", {
+      const saved = await workspaceFetch("/api/v1/cv", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cv),
       });
       if (!saved.ok) throw new Error("Save your CV before creating a version.");
-      const response = await fetch("/api/v1/cv/versions", {
+      const response = await workspaceFetch("/api/v1/cv/versions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label, job_title: jobTitle, company }),
@@ -183,11 +191,11 @@ export default function CvPage() {
     if (!window.confirm(`Load "${version.label}" into the editor? Your saved version will remain unchanged.`)) return;
     setVersionBusy(true);
     try {
-      const response = await fetch(`/api/v1/cv/versions/${version.id}/restore`, { method: "POST" });
+      const response = await workspaceFetch(`/api/v1/cv/versions/${version.id}/restore`, { method: "POST" });
       if (!response.ok) throw new Error("Could not restore this CV version.");
       const restored = fromApi(await response.json() as ApiCv);
       setCv(restored);
-      localStorage.setItem("careerpilot.cv", JSON.stringify(restored));
+      rememberCv(restored);
       setStatus("saved");
       setMessage(`"${version.label}" has been loaded into the editor. The saved snapshot remains in history.`);
     } catch (error) {
@@ -201,13 +209,13 @@ export default function CvPage() {
     setAnalysing(true);
     setMessage("");
     try {
-      const saved = await fetch("/api/v1/cv", {
+      const saved = await workspaceFetch("/api/v1/cv", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cv),
       });
       if (!saved.ok) throw new Error("Save your CV before analysing it.");
-      const response = await fetch("/api/v1/cv/analyse", {
+      const response = await workspaceFetch("/api/v1/cv/analyse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_description: jobDescription }),
@@ -230,7 +238,7 @@ export default function CvPage() {
     setMessage("");
     try {
       // Persist the current editor state first so the downloaded file is never stale.
-      const savedResponse = await fetch("/api/v1/cv", {
+      const savedResponse = await workspaceFetch("/api/v1/cv", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cv),
@@ -238,9 +246,9 @@ export default function CvPage() {
       if (!savedResponse.ok) throw new Error("Save your CV before exporting.");
       const saved = fromApi(await savedResponse.json() as ApiCv);
       setCv(saved);
-      localStorage.setItem("careerpilot.cv", JSON.stringify(saved));
+      rememberCv(saved);
 
-      const response = await fetch(`/api/v1/cv/export?format=${format}`, { method: "POST" });
+      const response = await workspaceFetch(`/api/v1/cv/export?format=${format}`, { method: "POST" });
       if (!response.ok) {
         const detail = await response.json().catch(() => null) as { detail?: string } | null;
         throw new Error(detail?.detail || "The document could not be generated.");
