@@ -31,7 +31,7 @@ The Discover jobs workspace now supports:
 - Filtering saved and archived roles, restoring archived roles, and deleting entries.
 - Duplicate URL detection to avoid saving the same listing twice.
 
-This release is a personal job inbox, not a live job-board aggregator. It does not scrape SEEK, Trade Me Jobs, LinkedIn, or employer sites. Provider integrations will be added only through permitted feeds or APIs and in accordance with their terms. Job descriptions and URLs are user-provided and should be treated as untrusted content.
+Job matching is deterministic and explainable: it compares recognised skills, role-title terms, and location preference against the saved Career Profile and CV, and shows the evidence behind its indicative score. It does not use AI or embeddings. Missing keywords are explicitly not treated as proof that a candidate lacks a skill.\n\nThis release is a personal job inbox, not a live job-board aggregator. It does not scrape SEEK, Trade Me Jobs, LinkedIn, or employer sites. Provider integrations will be added only through permitted feeds or APIs and in accordance with their terms. Job descriptions and URLs are user-provided and should be treated as untrusted content.
 
 The API is available at `GET/POST /api/v1/jobs`, `PATCH /api/v1/jobs/{id}`, and `DELETE /api/v1/jobs/{id}`. Search supports `q`, `location`, and `status` query parameters.
 
