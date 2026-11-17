@@ -8,8 +8,9 @@ type Stage = "interested" | "preparing" | "ready_to_apply" | "applied" | "assess
 type Application = {
   id: number; title: string; company: string; location: string; url: string;
   stage: Stage; applied_at: string | null; next_action: string;
-  next_action_date: string | null; notes: string; created_at: string; updated_at: string;
+  next_action_date: string | null; notes: string; cv_version_id: number | null; cover_letter: string; created_at: string; updated_at: string;
 };
+type CvVersion = { id: number; label: string; job_title: string; company: string; created_at: string };
 const stages: { value: Stage; label: string }[] = [
   { value: "interested", label: "Interested" }, { value: "preparing", label: "Preparing" },
   { value: "ready_to_apply", label: "Ready to apply" }, { value: "applied", label: "Applied" },
@@ -22,6 +23,7 @@ const empty = { title: "", company: "", location: "New Zealand", url: "" };
 
 export default function ApplicationsPage() {
   const [items, setItems] = useState<Application[]>([]);
+  const [cvVersions, setCvVersions] = useState<CvVersion[]>([]);
   const [draft, setDraft] = useState(empty);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,12 @@ export default function ApplicationsPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    fetch("/api/v1/cv/versions", { cache: "no-store" })
+      .then(response => response.ok ? response.json() as Promise<CvVersion[]> : [])
+      .then(setCvVersions)
+      .catch(() => setCvVersions([]));
+  }, []);
 
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
@@ -148,6 +156,23 @@ export default function ApplicationsPage() {
                   <label className="text-xs font-medium text-[var(--muted)]">Next action date<input type="date" className={field} value={item.next_action_date || ""} onChange={event => void update(item.id, { next_action_date: event.target.value || null })} /></label>
                 </div>
                 <label className="mt-3 block text-xs font-medium text-[var(--muted)]">Notes<textarea rows={2} className={field} value={item.notes} onChange={event => setItems(current => current.map(entry => entry.id === item.id ? { ...entry, notes: event.target.value } : entry))} onBlur={event => void update(item.id, { notes: event.target.value })} placeholder="Interview notes, contacts, reminders…" /></label>
+                <div className="mt-4 border-t border-[var(--line)] pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Application documents</h3>
+                    <a href="/cv" className="text-xs font-semibold text-[var(--brand)] no-underline">Open CV Studio ↗</a>
+                  </div>
+                  <label className="mt-3 block text-xs font-medium text-[var(--muted)]">CV version for this application
+                    <select className={field} value={item.cv_version_id ?? ""} onChange={event => void update(item.id, { cv_version_id: event.target.value ? Number(event.target.value) : null })}>
+                      <option value="">No CV version linked</option>
+                      {cvVersions.map(version => <option key={version.id} value={version.id}>{version.label}{version.job_title ? ` · ${version.job_title}` : ""}{version.company ? ` · ${version.company}` : ""}</option>)}
+                    </select>
+                  </label>
+                  {cvVersions.length === 0 && <p className="mt-2 text-xs text-[var(--muted)]">Save a CV version in CV Studio to attach it here.</p>}
+                  <label className="mt-3 block text-xs font-medium text-[var(--muted)]">Cover letter
+                    <textarea rows={5} maxLength={20000} className={field + " resize-y"} value={item.cover_letter} onChange={event => setItems(current => current.map(entry => entry.id === item.id ? { ...entry, cover_letter: event.target.value } : entry))} onBlur={event => void update(item.id, { cover_letter: event.target.value })} placeholder="Draft a role-specific cover letter here. Keep every claim factual and review it before applying…" />
+                  </label>
+                  <p className="mt-2 text-xs text-[var(--muted)]">Saved privately with this opportunity. CareerPilot does not send it to the employer.</p>
+                </div>
               </article>)}
           </div>
           <p className="mt-6 text-xs leading-5 text-[var(--muted)]">CareerPilot will not submit applications or contact employers. You stay in control of every external action.</p>
