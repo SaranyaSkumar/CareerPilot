@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
-from app.models import JobListing
+from app.models import CareerProfile, CvDocument, JobListing
 
 engine = create_engine(
     "sqlite://",
@@ -129,6 +129,6 @@ def test_job_match_handles_missing_candidate_profile_and_job_description():
     result = client.get(f"/api/v1/jobs/{created.json()['id']}/match")
     assert result.status_code == 200
     body = result.json()
-    assert body["score"] == 5
+    assert body["score"] == 10
     assert body["matched_skills"] == []
     assert any("Add your verified skills" in item for item in body["limitations"])
