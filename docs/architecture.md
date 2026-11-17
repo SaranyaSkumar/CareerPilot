@@ -46,7 +46,7 @@ Keep the canonical career profile separate from CV presentation. A CV version re
 Supabase Auth (project `kcrtedhezyovfygfotia`, region `ap-southeast-2`) is the account system. The Next.js app uses `@supabase/ssr`:
 
 - Browser and server clients read the publishable key only. The web service never receives a service-role or secret key.
-- `src/middleware.ts` calls `supabase.auth.getClaims()` on each matched request, refreshes the cookie session, and redirects unsigned workspace pages to `/login`. On Next.js 15 this file exports `middleware`. Next.js 16 renamed that entrypoint to `proxy`; the session check is the same.
+- `src/proxy.ts` calls `supabase.auth.getClaims()` on each matched request, refreshes the cookie session, and redirects unsigned workspace pages to `/login`. Next.js 16 runs this proxy on Node.js. The Vercel Services deployment cannot host an Edge middleware file, so the app does not use `middleware.ts`.
 - `src/app/api/[...path]/route.ts` verifies the cookie session and forwards the Supabase access token to FastAPI. The browser does not choose the user id.
 
 FastAPI verifies that bearer token itself. It does not call Auth on every request and it does not trust the legacy JWT secret. Verification uses the public JWKS at `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` (override with `SUPABASE_JWKS_URL`), accepts only ES256 and RS256, and requires issuer `${SUPABASE_URL}/auth/v1`, audience `authenticated`, and role `authenticated`. `sub` is the user id. Unauthenticated API calls return 401. `/health` is the only public route and contains no user data.

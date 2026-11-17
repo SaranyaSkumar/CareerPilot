@@ -71,7 +71,7 @@ Supabase Auth → URL configuration, for `https://careerpilot-eight-iota.vercel.
 
 ### Authentication and isolation
 
-Sign-up, sign-in, magic link, sign-out, and password reset are Supabase Auth, using `@supabase/ssr` cookie sessions in the Next.js app. Middleware (`apps/web/src/middleware.ts`; Next.js 16 calls the same function `proxy`) redirects signed-out visitors from workspace pages to `/login` and refreshes the session with `getClaims()`.
+Sign-up, sign-in, magic link, sign-out, and password reset are Supabase Auth, using `@supabase/ssr` cookie sessions in the Next.js app. The Node.js proxy at `apps/web/src/proxy.ts` redirects signed-out visitors from workspace pages to `/login` and refreshes the session with `getClaims()`. It is a proxy rather than Edge middleware because Vercel Services reject Edge Functions.
 
 The same-origin proxy reads that session and sends `Authorization: Bearer <access token>` to FastAPI. It does not forward a client-supplied user id or Authorization header. FastAPI verifies the token locally against the Supabase JWKS. This project signs tokens with ES256; RS256 is also accepted so a later asymmetric rotation keeps working. A token must use one of those algorithms, issuer `${SUPABASE_URL}/auth/v1`, audience `authenticated`, and role `authenticated`. The user id is the `sub` claim. The legacy shared JWT secret is not a verifier. Missing or invalid tokens get 401. If the API has no `SUPABASE_URL`, or the key set cannot be fetched, it fails closed with 503.
 
