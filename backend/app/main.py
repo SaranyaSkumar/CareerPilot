@@ -9,6 +9,7 @@ from app.cv_ai import router as cv_ai_router
 from app.cv_variants import router as cv_variants_router
 from app.job_discovery import router as job_discovery_router
 from app.jobs import router as jobs_router
+from app.applications import router as applications_router
 
 app = FastAPI(
     title="CareerPilot API",
@@ -35,6 +36,7 @@ app.include_router(cv_ai_router)
 app.include_router(cv_variants_router)
 app.include_router(job_discovery_router)
 app.include_router(jobs_router)
+app.include_router(applications_router)
 
 
 @app.get("/health", tags=["system"])
