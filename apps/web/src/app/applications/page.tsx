@@ -1,3 +1,158 @@
-import { BriefcaseBusiness } from "lucide-react";
+"use client";
+
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { BriefcaseBusiness, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
-export default function ApplicationsPage(){return <main className="min-h-screen"><WorkspaceNav active="/applications"/><div className="lg:pl-[248px]"><WorkspaceHeader/><div className="mx-auto max-w-4xl px-6 py-12 md:px-10"><p className="text-sm font-semibold text-[var(--brand)]">STAY ORGANISED</p><h1 className="mt-2 text-3xl font-semibold">Applications</h1><p className="mt-2 text-sm text-[var(--muted)]">Keep every opportunity and application step in one place.</p><div className="mt-8 rounded-2xl border border-dashed border-[var(--line)] bg-white p-10 text-center"><BriefcaseBusiness className="mx-auto text-[var(--brand)]" size={28}/><h2 className="mt-4 font-semibold">Your application tracker is coming next</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">We'll add saved roles, application stages, deadlines, notes and interview tracking after job discovery is in place.</p></div></div></div></main>}
+
+type Stage = "interested" | "preparing" | "ready_to_apply" | "applied" | "assessment" | "interview" | "offer" | "rejected" | "withdrawn";
+type Application = {
+  id: number; title: string; company: string; location: string; url: string;
+  stage: Stage; applied_at: string | null; next_action: string;
+  next_action_date: string | null; notes: string; created_at: string; updated_at: string;
+};
+const stages: { value: Stage; label: string }[] = [
+  { value: "interested", label: "Interested" }, { value: "preparing", label: "Preparing" },
+  { value: "ready_to_apply", label: "Ready to apply" }, { value: "applied", label: "Applied" },
+  { value: "assessment", label: "Assessment" }, { value: "interview", label: "Interview" },
+  { value: "offer", label: "Offer" }, { value: "rejected", label: "Rejected" },
+  { value: "withdrawn", label: "Withdrawn" },
+];
+const field = "mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-soft)]";
+const empty = { title: "", company: "", location: "New Zealand", url: "" };
+
+export default function ApplicationsPage() {
+  const [items, setItems] = useState<Application[]>([]);
+  const [draft, setDraft] = useState(empty);
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/v1/applications", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not load your applications.");
+      setItems(await response.json() as Application[]);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load your applications.");
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function add(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/v1/applications", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+      });
+      const body = await response.json().catch(() => null) as { detail?: string } | null;
+      if (!response.ok) throw new Error(body?.detail || "Could not create this application.");
+      setDraft(empty); setShowForm(false); setNotice("Opportunity added to your tracker."); await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create this application.");
+    } finally { setSaving(false); }
+  }
+
+  async function update(id: number, patch: Partial<Application>) {
+    setError(""); setNotice("");
+    try {
+      const response = await fetch(`/api/v1/applications/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+      });
+      const body = await response.json().catch(() => null) as { detail?: string } | null;
+      if (!response.ok) throw new Error(body?.detail || "Could not update this application.");
+      const saved = body as Application;
+      setItems(current => current.map(item => item.id === id ? saved : item));
+      setNotice("Application updated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update this application.");
+    }
+  }
+
+  async function remove(item: Application) {
+    if (!window.confirm(`Delete ${item.title} at ${item.company || "this company"}?`)) return;
+    try {
+      const response = await fetch(`/api/v1/applications/${item.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Could not delete this application.");
+      setItems(current => current.filter(entry => entry.id !== item.id));
+      setNotice("Application deleted."); setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete this application.");
+    }
+  }
+
+  const active = items.filter(item => !["rejected", "withdrawn", "offer"].includes(item.stage)).length;
+  const interviews = items.filter(item => item.stage === "interview").length;
+
+  return (
+    <main className="min-h-screen">
+      <WorkspaceNav active="/applications" />
+      <div className="lg:pl-[248px]"><WorkspaceHeader />
+        <div className="mx-auto max-w-6xl px-6 py-9 md:px-10">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+            <div><p className="text-sm font-semibold text-[var(--brand)]">STAY ORGANISED</p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight">Application tracker</h1>
+              <p className="mt-2 text-sm text-[var(--muted)]">Track each opportunity from first interest through interviews and outcomes.</p>
+            </div>
+            <button onClick={() => setShowForm(value => !value)} className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white">
+              <Plus size={16} />{showForm ? "Close form" : "Add application"}
+            </button>
+          </div>
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[var(--line)] bg-white p-4"><p className="text-xs text-[var(--muted)]">Total opportunities</p><p className="mt-1 text-2xl font-semibold">{items.length}</p></div>
+            <div className="rounded-2xl border border-[var(--line)] bg-white p-4"><p className="text-xs text-[var(--muted)]">Active pipeline</p><p className="mt-1 text-2xl font-semibold">{active}</p></div>
+            <div className="rounded-2xl border border-[var(--line)] bg-white p-4"><p className="text-xs text-[var(--muted)]">Interviews</p><p className="mt-1 text-2xl font-semibold">{interviews}</p></div>
+          </div>
+
+          {showForm && <form onSubmit={add} className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-5 md:p-7">
+            <h2 className="font-semibold">Add an opportunity</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium">Job title *<input required maxLength={200} className={field} value={draft.title} onChange={event => setDraft(value => ({ ...value, title: event.target.value }))} placeholder="Software Engineer" /></label>
+              <label className="text-sm font-medium">Company<input maxLength={200} className={field} value={draft.company} onChange={event => setDraft(value => ({ ...value, company: event.target.value }))} placeholder="Company name" /></label>
+              <label className="text-sm font-medium">Location<input maxLength={200} className={field} value={draft.location} onChange={event => setDraft(value => ({ ...value, location: event.target.value }))} placeholder="Auckland, New Zealand" /></label>
+              <label className="text-sm font-medium">Job URL<input type="url" maxLength={2000} className={field} value={draft.url} onChange={event => setDraft(value => ({ ...value, url: event.target.value }))} placeholder="https://…" /></label>
+            </div>
+            <div className="mt-5 flex gap-3"><button disabled={saving} className="rounded-xl bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{saving ? "Saving…" : "Save opportunity"}</button>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-[var(--line)] px-4 py-3 text-sm">Cancel</button></div>
+          </form>}
+
+          {(error || notice) && <p role="status" className={`mt-4 rounded-xl px-4 py-3 text-sm ${error ? "bg-red-50 text-red-700" : "bg-[var(--brand-soft)] text-[var(--brand)]"}`}>{error || notice}</p>}
+
+          <div className="mt-6 space-y-3">
+            {loading ? <div className="rounded-2xl border border-[var(--line)] bg-white p-10 text-center text-sm text-[var(--muted)]">Loading applications…</div>
+              : items.length === 0 ? <div className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-6 py-14 text-center">
+                <BriefcaseBusiness className="mx-auto text-[var(--brand)]" size={28} /><h2 className="mt-4 font-semibold">Your pipeline starts here</h2>
+                <p className="mt-2 text-sm text-[var(--muted)]">Add roles you are interested in and update their stage as you progress.</p>
+              </div>
+              : items.map(item => <article key={item.id} className="rounded-2xl border border-[var(--line)] bg-white p-5 md:p-6">
+                <div className="flex flex-col justify-between gap-4 md:flex-row">
+                  <div className="min-w-0"><h2 className="text-lg font-semibold">{item.title}</h2>
+                    <p className="mt-1 text-sm text-[var(--muted)]">{item.company || "Company not specified"}{item.location ? ` · ${item.location}` : ""}</p>
+                    {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--brand)] no-underline">Original listing <ExternalLink size={12} /></a>}
+                    {item.applied_at && <p className="mt-2 text-xs text-[var(--muted)]">Applied {new Date(item.applied_at).toLocaleDateString()}</p>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2"><label className="text-xs font-medium text-[var(--muted)]">Stage
+                    <select aria-label={`Stage for ${item.title}`} className="ml-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-xs text-[var(--foreground)]" value={item.stage} onChange={event => void update(item.id, { stage: event.target.value as Stage })}>
+                      {stages.map(stage => <option key={stage.value} value={stage.value}>{stage.label}</option>)}
+                    </select></label>
+                    <button onClick={() => void remove(item)} aria-label={`Delete ${item.title}`} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <label className="text-xs font-medium text-[var(--muted)]">Next action<input className={field} value={item.next_action} onChange={event => setItems(current => current.map(entry => entry.id === item.id ? { ...entry, next_action: event.target.value } : entry))} onBlur={event => void update(item.id, { next_action: event.target.value })} placeholder="e.g. Follow up with recruiter" /></label>
+                  <label className="text-xs font-medium text-[var(--muted)]">Next action date<input type="date" className={field} value={item.next_action_date || ""} onChange={event => void update(item.id, { next_action_date: event.target.value || null })} /></label>
+                </div>
+                <label className="mt-3 block text-xs font-medium text-[var(--muted)]">Notes<textarea rows={2} className={field} value={item.notes} onChange={event => setItems(current => current.map(entry => entry.id === item.id ? { ...entry, notes: event.target.value } : entry))} onBlur={event => void update(item.id, { notes: event.target.value })} placeholder="Interview notes, contacts, reminders…" /></label>
+              </article>)}
+          </div>
+          <p className="mt-6 text-xs leading-5 text-[var(--muted)]">CareerPilot will not submit applications or contact employers. You stay in control of every external action.</p>
+        </div>
+      </div>
+    </main>
+  );
+}
