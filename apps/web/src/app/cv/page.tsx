@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Cloud, Download, FileUser, HardDrive, Printer, Save } from "lucide-react";
+import { CvAiAssist } from "@/components/cv-ai-assist";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
 import { currentUserId, readDraft, writeDraft } from "@/lib/draft-storage";
 import { workspaceFetch } from "@/lib/workspace-fetch";
@@ -377,10 +378,31 @@ export default function CvPage() {
             </div>}
           </section>
 
+          <CvAiAssist
+            cv={cv}
+            editorBusy={status === "loading" || exporting !== null || versionBusy}
+            onDraftPersisted={next => {
+              setCv(next);
+              rememberCv(next);
+              setStatus("saved");
+            }}
+            onApplied={(next, note, refreshVersions) => {
+              setCv(next);
+              rememberCv(next);
+              setStatus("saved");
+              setMessage(note);
+              if (!refreshVersions) return;
+              workspaceFetch("/api/v1/cv/versions")
+                .then(response => response.ok ? response.json() as Promise<CvVersion[]> : [])
+                .then(data => setVersions(data))
+                .catch(() => undefined);
+            }}
+          />
+
           <div className="mt-6 grid items-start gap-6 xl:grid-cols-[1fr_0.9fr]">
             <section className="rounded-2xl border border-[var(--line)] bg-white p-6">
               <div className="flex items-center gap-2"><FileUser className="text-[var(--brand)]" size={19}/><h2 className="font-semibold">CV content</h2></div>
-              <p className="mt-1 text-xs text-[var(--muted)]">Write factual information only. AI-assisted tailoring will be added after the profile foundation.</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">Write factual information only. AI suggestions appear above and are saved only when you accept them.</p>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <label className="text-sm font-medium">Full name<input className={input} value={cv.name} onChange={e => set("name", e.target.value)} placeholder="Your name"/></label>
                 <label className="text-sm font-medium">Professional title<input className={input} value={cv.headline} onChange={e => set("headline", e.target.value)} placeholder="e.g. Software Engineer"/></label>

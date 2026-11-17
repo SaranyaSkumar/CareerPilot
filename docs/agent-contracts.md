@@ -36,6 +36,8 @@ Output: draft CV content, cover letter, question responses, and interview prepar
 
 Constraints: only use facts present in the supplied profile/evidence; mark missing information as a question or placeholder; never invent metrics or achievements.
 
+CV Studio's tailor and bullet rewrite are the first Application Writer path. They call Anthropic from the API, validate a Pydantic schema, and refuse wording the saved CV cannot support. The user accepts each change before it is saved.
+
 ### Application QA
 **Purpose:** review application materials before the user approves them.
 
