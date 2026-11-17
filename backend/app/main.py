@@ -9,6 +9,7 @@ from app.profile import router as profile_router
 from app.cv import router as cv_router
 from app.cv_analysis import router as cv_analysis_router
 from app.jobs import router as jobs_router
+from app.applications import router as applications_router
 
 
 @asynccontextmanager
@@ -37,6 +38,7 @@ app.include_router(profile_router)
 app.include_router(cv_router)
 app.include_router(cv_analysis_router)
 app.include_router(jobs_router)
+app.include_router(applications_router)
 
 
 @app.get("/health", tags=["system"])
