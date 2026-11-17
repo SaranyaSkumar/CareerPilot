@@ -4,7 +4,7 @@ An AI-powered career workspace for discovering opportunities, building ATS-frien
 
 ## Product direction
 
-CareerPilot is being built personal-first, with an architecture that can support multiple users later. AI-generated work is reviewable and approval-gated: the platform does not submit applications or contact employers without explicit user approval.
+Each person signs in with their own account. AI-generated work is reviewable and approval-gated: the platform does not submit applications or contact employers without explicit user approval.
 
 ## Planned MVP
 
@@ -46,13 +46,40 @@ The web service has an internal service binding to `backend`. Vercel injects the
 
 ### Required deployment configuration
 
-- Configure `DATABASE_URL` for the backend to point to a managed PostgreSQL database. The default SQLite database is suitable only for local development and is not durable on serverless instances.
-- Configure the `CAREERPILOT_BACKEND_URL` service binding through Vercel as declared in `vercel.json`; do not set a public `NEXT_PUBLIC_API_URL`.
-- Ensure the Vercel project is linked to this repository and supports the configured multi-service deployment.
+Apply `backend/migrations_sql/20261117_0001_add_user_scoping.sql` in the Supabase SQL editor before starting this version of the API. It deletes the old sample rows and adds a `user_id` to every user-owned table. The API process does not create or migrate tables: the runtime role `careerpilot_app` has no `CREATE` privilege on `public`.
 
-### Security gate before production
+Web service (Vercel project environment, not the backend):
 
-This is still a personal-development API with a singleton profile/CV and no authentication or per-user authorization. Although the backend service is not routed directly from the public edge, the web proxy intentionally exposes its current API paths at same-origin `/api/v1/*`. **Do not use this deployment with real personal data or promote it to production until authentication, per-user data isolation, authorization, and appropriate database protections are implemented and tested.** Keeping the backend service internal is not a substitute for API authentication.
+- `NEXT_PUBLIC_SUPABASE_URL` — `https://kcrtedhezyovfygfotia.supabase.co`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — the publishable key (`sb_publishable_...`)
+
+`NEXT_PUBLIC_` values are inlined when the web app is built, so set them in Vercel before the production build.
+
+Backend service:
+
+- `DATABASE_URL` — the `careerpilot_app` Postgres connection string. SQLite is only for local tests and is not durable on serverless instances.
+- `SUPABASE_URL` — `https://kcrtedhezyovfygfotia.supabase.co`
+- `SUPABASE_JWKS_URL` — optional. When unset, the API uses `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`
+
+The `CAREERPILOT_BACKEND_URL` binding is injected from `vercel.json`. Do not set a public `NEXT_PUBLIC_API_URL`. Do not put a service-role key, secret key, or the legacy JWT secret in either service. Nothing in the web app should use a key that bypasses row level security.
+
+Supabase Auth → URL configuration, for `https://careerpilot-eight-iota.vercel.app`:
+
+- Site URL: `https://careerpilot-eight-iota.vercel.app`
+- Redirect URLs: `https://careerpilot-eight-iota.vercel.app/auth/callback` and, for local development, `http://localhost:3000/auth/callback`
+- Email provider enabled, with email + password. Magic links use the same email provider.
+
+### Authentication and isolation
+
+Sign-up, sign-in, magic link, sign-out, and password reset are Supabase Auth, using `@supabase/ssr` cookie sessions in the Next.js app. The Node.js proxy at `apps/web/src/proxy.ts` redirects signed-out visitors from workspace pages to `/login` and refreshes the session with `getClaims()`. It is a proxy rather than Edge middleware because Vercel Services reject Edge Functions.
+
+The same-origin proxy reads that session and sends `Authorization: Bearer <access token>` to FastAPI. It does not forward a client-supplied user id or Authorization header. FastAPI verifies the token locally against the Supabase JWKS. This project signs tokens with ES256; RS256 is also accepted so a later asymmetric rotation keeps working. A token must use one of those algorithms, issuer `${SUPABASE_URL}/auth/v1`, audience `authenticated`, and role `authenticated`. The user id is the `sub` claim. The legacy shared JWT secret is not a verifier. Missing or invalid tokens get 401. If the API has no `SUPABASE_URL`, or the key set cannot be fetched, it fails closed with 503.
+
+`/health` stays public and returns no personal data, so the platform can probe the service. Every `/api/v1/*` route requires a verified user.
+
+Profile, CV, CV versions, and job listings each have a non-null `user_id`. There is one profile and one CV draft per user (`UNIQUE (user_id)`), created the first time that user opens or saves them. Versions and jobs are filtered by the same id. A request for another user's version or job id returns 404. Duplicate job URLs are enforced per user. Row level security stays enabled. `authenticated` can only touch rows where `auth.uid() = user_id`. `anon` has no grants. `careerpilot_app` still has `BYPASSRLS` and a permissive policy, so the API's `user_id` filters are the enforcement layer for the backend connection. The owner policies are what stop the Supabase Data API from returning someone else's rows.
+
+Browser drafts in local storage are keyed by the signed-in user id and cleared on sign-out.
 
 ### CV document export
 

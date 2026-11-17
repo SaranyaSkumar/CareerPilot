@@ -1,9 +1,13 @@
+import uuid
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user_id
 from app.database import get_db
 from app.models import CareerProfile
+from app.ownership import get_or_create_for_user
 
 router = APIRouter(prefix="/api/v1/profile", tags=["career profile"])
 
@@ -23,25 +27,22 @@ class ProfileResponse(ProfilePayload):
 
 
 @router.get("", response_model=ProfileResponse)
-def get_profile(db: Session = Depends(get_db)) -> CareerProfile:
-    profile = db.get(CareerProfile, 1)
-    if profile is None:
-        profile = CareerProfile(id=1)
-        db.add(profile)
-        db.commit()
-        db.refresh(profile)
-    return profile
+def get_profile(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> CareerProfile:
+    return get_or_create_for_user(db, CareerProfile, user_id)
 
 
 @router.put("", response_model=ProfileResponse)
-def save_profile(payload: ProfilePayload, db: Session = Depends(get_db)) -> CareerProfile:
-    profile = db.get(CareerProfile, 1)
-    if profile is None:
-        profile = CareerProfile(id=1, **payload.model_dump())
-        db.add(profile)
-    else:
-        for key, value in payload.model_dump().items():
-            setattr(profile, key, value)
+def save_profile(
+    payload: ProfilePayload,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> CareerProfile:
+    profile = get_or_create_for_user(db, CareerProfile, user_id)
+    for key, value in payload.model_dump().items():
+        setattr(profile, key, value)
     db.commit()
     db.refresh(profile)
     return profile

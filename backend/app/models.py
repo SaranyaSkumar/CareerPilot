@@ -1,5 +1,7 @@
-from sqlalchemy import JSON, DateTime, String, Text, func
+import uuid
 from datetime import datetime
+
+from sqlalchemy import JSON, DateTime, Index, String, Text, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -8,9 +10,8 @@ from app.database import Base
 class CareerProfile(Base):
     __tablename__ = "career_profiles"
 
-    # A single local profile for the personal-first MVP. This becomes user-scoped
-    # when authentication is introduced; do not expose this API publicly yet.
-    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, unique=True)
     full_name: Mapped[str] = mapped_column(String(160), default="")
     email: Mapped[str] = mapped_column(String(320), default="")
     headline: Mapped[str] = mapped_column(String(200), default="")
@@ -22,8 +23,8 @@ class CareerProfile(Base):
 class CvDocument(Base):
     __tablename__ = "cv_documents"
 
-    # One personal CV draft for the personal-first MVP; user scoping follows auth.
-    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(160), default="")
     headline: Mapped[str] = mapped_column(String(200), default="")
     summary: Mapped[str] = mapped_column(Text, default="")
@@ -36,6 +37,7 @@ class CvVersion(Base):
     __tablename__ = "cv_versions"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     label: Mapped[str] = mapped_column(String(160), nullable=False)
     job_title: Mapped[str] = mapped_column(String(200), default="")
     company: Mapped[str] = mapped_column(String(200), default="")
@@ -50,8 +52,19 @@ class CvVersion(Base):
 
 class JobListing(Base):
     __tablename__ = "job_listings"
+    __table_args__ = (
+        Index(
+            "job_listings_user_url_unique",
+            "user_id",
+            "url",
+            unique=True,
+            sqlite_where=text("url <> ''"),
+            postgresql_where=text("url <> ''"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     company: Mapped[str] = mapped_column(String(200), default="")
     location: Mapped[str] = mapped_column(String(200), default="New Zealand")

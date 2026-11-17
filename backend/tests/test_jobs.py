@@ -1,5 +1,4 @@
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -7,6 +6,8 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.models import CareerProfile, JobListing
+from tests.api_client import AuthClient
+from tests.jwt_support import DEFAULT_USER_ID
 
 engine = create_engine(
     "sqlite://",
@@ -25,7 +26,7 @@ def override_get_db():
         db.close()
 
 
-client = TestClient(app)
+client = AuthClient(app)
 
 
 @pytest.fixture(autouse=True)
@@ -96,12 +97,13 @@ def test_job_title_is_required():
 def test_job_match_endpoint_uses_saved_career_profile():
     db = TestingSessionLocal()
     db.add(CareerProfile(
-        id=1,
+        user_id=DEFAULT_USER_ID,
         headline="Software Engineer",
         location="Auckland, New Zealand",
         skills="Python, AWS, React",
     ))
     job = JobListing(
+        user_id=DEFAULT_USER_ID,
         title="Software Engineer",
         company="Example",
         location="Auckland",

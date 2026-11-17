@@ -1,28 +1,20 @@
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, engine
-from app import models  # noqa: F401 - register ORM models before create_all
+from app.auth import get_current_user_id
 from app.profile import router as profile_router
 from app.cv import router as cv_router
 from app.cv_analysis import router as cv_analysis_router
 from app.jobs import router as jobs_router
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    # Lightweight local-MVP bootstrap. Replace with Alembic migrations before production.
-    Base.metadata.create_all(bind=engine)
-    yield
-
-
 app = FastAPI(
     title="CareerPilot API",
-    version="0.4.0",
-    description="API for the CareerPilot personal career workspace.",
-    lifespan=lifespan,
+    version="0.5.0",
+    description=(
+        "API for the CareerPilot career workspace. "
+        "Every /api/v1 route requires a Supabase access token. "
+        "The database schema is owned by Alembic migrations and is not created at startup."
+    ),
 )
 
 app.add_middleware(
@@ -30,7 +22,7 @@ app.add_middleware(
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(profile_router)
@@ -45,5 +37,5 @@ def health() -> dict[str, str]:
 
 
 @app.get("/api/v1", tags=["system"])
-def api_root() -> dict[str, str]:
-    return {"name": "CareerPilot API", "version": "0.4.0"}
+def api_root(_user_id: object = Depends(get_current_user_id)) -> dict[str, str]:
+    return {"name": "CareerPilot API", "version": "0.5.0"}

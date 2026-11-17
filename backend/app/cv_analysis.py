@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import re
+import uuid
 from collections import Counter
+from types import SimpleNamespace
 from typing import Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user_id
 from app.database import get_db
 from app.models import CvDocument
 
@@ -131,9 +134,12 @@ def analyse_cv(cv, job_description: str = "") -> AnalysisResponse:
     )
 
 @router.post("/analyse", response_model=AnalysisResponse)
-def analyse_cv_endpoint(payload: AnalysisRequest, db: Session = Depends(get_db)) -> AnalysisResponse:
-    cv = db.get(CvDocument, 1)
+def analyse_cv_endpoint(
+    payload: AnalysisRequest,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> AnalysisResponse:
+    cv = db.query(CvDocument).filter(CvDocument.user_id == user_id).one_or_none()
     if cv is None:
-        from types import SimpleNamespace
         cv = SimpleNamespace(name="", headline="", summary="", experience="", skills="", education="")
     return analyse_cv(cv, payload.job_description)

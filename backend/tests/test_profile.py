@@ -1,10 +1,10 @@
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from tests.api_client import AuthClient
 
 engine = create_engine(
     "sqlite://",
@@ -24,7 +24,7 @@ def override_get_db():
 
 
 app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
+client = AuthClient(app)
 
 
 def test_profile_can_be_created_and_read():
