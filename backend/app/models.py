@@ -65,3 +65,19 @@ class JobListing(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class JobApplication(Base):
+    __tablename__ = "job_applications"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    company: Mapped[str] = mapped_column(String(200), default="")
+    location: Mapped[str] = mapped_column(String(200), default="")
+    url: Mapped[str] = mapped_column(String(2000), default="")
+    stage: Mapped[str] = mapped_column(String(32), default="interested", index=True)
+    applied_at: Mapped[datetime | None] = mapped_column(Date, nullable=True)
+    next_action: Mapped[str] = mapped_column(String(500), default="")
+    next_action_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
