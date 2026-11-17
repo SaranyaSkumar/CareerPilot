@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyAcceptedSuggestions, type CvContent, type SuggestionItem } from "./cv-suggestions.ts";
+import { applyAcceptedSuggestions, variantLabel, type CvContent, type SuggestionItem } from "./cv-suggestions.ts";
 
 const cv: CvContent = {
   name: "Alex Example",
@@ -116,6 +116,19 @@ test("suggested order is optional and keeps rejected lines on their original tex
     reordered.experience,
     "- Wrote internal notes for the billing API\n- Built the billing API in Python\nSoftware Engineer | Example Ltd | 2022-present",
   );
+});
+
+test("a confirmed gap is added and an unticked gap is not", () => {
+  const next = applyAcceptedSuggestions(cv, [], new Set(), false, ["FastAPI"]);
+  assert.equal(next.skills, "FastAPI, Python, TypeScript");
+  assert.equal(next.summary, cv.summary);
+  const ignored = applyAcceptedSuggestions(cv, [], new Set(), false, []);
+  assert.equal(ignored.skills, cv.skills);
+});
+
+test("variant labels name the role and employer without replacing a long title", () => {
+  assert.equal(variantLabel("Backend Engineer", "Northwind"), "Tailored – Backend Engineer @ Northwind");
+  assert.equal(variantLabel("  ", ""), "Tailored – role");
 });
 
 test("accepted skills move to the front and unsupported skills are not added", () => {

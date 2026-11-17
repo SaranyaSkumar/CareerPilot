@@ -36,11 +36,19 @@ function promoteSkills(skills: string, phrases: string[]): string {
   return [...front, ...rest].join(useLines ? "\n" : ", ");
 }
 
+export function variantLabel(jobTitle: string, company: string): string {
+  const role = jobTitle.trim() || "role";
+  const employer = company.trim();
+  const label = employer ? `Tailored – ${role} @ ${employer}` : `Tailored – ${role}`;
+  return label.slice(0, 160);
+}
+
 export function applyAcceptedSuggestions(
   cv: CvContent,
   items: SuggestionItem[],
   acceptedIds: ReadonlySet<string>,
   useSuggestedOrder: boolean,
+  confirmedGaps: readonly string[] = [],
 ): CvContent {
   const accepted = (item: SuggestionItem) => acceptedIds.has(item.id) && !item.unsupported;
 
@@ -77,10 +85,12 @@ export function applyAcceptedSuggestions(
     }
   }
 
-  const phrases = items
-    .filter(item => item.section === "skills" && accepted(item))
-    .map(item => item.before.trim() || item.after.trim())
-    .filter(Boolean);
+  const phrases = [
+    ...items
+      .filter(item => item.section === "skills" && accepted(item))
+      .map(item => item.after.trim() || item.before.trim()),
+    ...confirmedGaps.map(term => term.trim()),
+  ].filter(Boolean);
 
   return {
     ...cv,
