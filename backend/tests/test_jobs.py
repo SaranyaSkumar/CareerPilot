@@ -35,6 +35,8 @@ def isolate_jobs_database():
     app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     db.query(JobListing).delete()
+    db.query(CareerProfile).delete()
+    db.query(CvDocument).delete()
     db.commit()
     db.close()
 
