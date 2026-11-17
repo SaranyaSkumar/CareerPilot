@@ -1,5 +1,5 @@
-from sqlalchemy import JSON, DateTime, String, Text, func
-from datetime import datetime
+from sqlalchemy import JSON, Date, DateTime, String, Text, func
+from datetime import date, datetime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -75,7 +75,7 @@ class JobApplication(Base):
     location: Mapped[str] = mapped_column(String(200), default="")
     url: Mapped[str] = mapped_column(String(2000), default="")
     stage: Mapped[str] = mapped_column(String(32), default="interested", index=True)
-    applied_at: Mapped[datetime | None] = mapped_column(Date, nullable=True)
+    applied_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     next_action: Mapped[str] = mapped_column(String(500), default="")
     next_action_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
