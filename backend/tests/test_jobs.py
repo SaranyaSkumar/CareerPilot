@@ -25,12 +25,14 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clear_jobs():
+def isolate_jobs_database():
+    # Other test modules also override this app dependency at import time.
+    # Re-apply this module's isolated session for every test.
+    app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     db.query(JobListing).delete()
     db.commit()
