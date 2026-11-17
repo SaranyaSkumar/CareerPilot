@@ -50,3 +50,44 @@ def test_profile_can_be_created_and_read():
 def test_profile_rejects_oversized_summary():
     response = client.put("/api/v1/profile", json={"summary": "x" * 5001})
     assert response.status_code == 422
+
+
+def test_profile_contact_fields_round_trip_and_stay_optional():
+    saved = client.put(
+        "/api/v1/profile",
+        json={
+            "full_name": "Alex Example",
+            "email": "alex@example.com",
+            "phone": "+64 21 555 0101",
+            "location": "Auckland, New Zealand",
+            "website_url": "https://alex.example",
+            "linkedin_url": "https://www.linkedin.com/in/alex-example",
+            "github_url": "https://github.com/alex-example",
+        },
+    )
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["phone"] == "+64 21 555 0101"
+    assert body["website_url"] == "https://alex.example"
+    assert body["linkedin_url"] == "https://www.linkedin.com/in/alex-example"
+    assert body["github_url"] == "https://github.com/alex-example"
+
+    fetched = client.get("/api/v1/profile")
+    assert fetched.status_code == 200
+    assert fetched.json()["github_url"] == "https://github.com/alex-example"
+
+    cleared = client.put(
+        "/api/v1/profile",
+        json={"full_name": "Alex Example", "email": "alex@example.com", "location": ""},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["phone"] == ""
+    assert cleared.json()["website_url"] == ""
+    assert cleared.json()["linkedin_url"] == ""
+    assert cleared.json()["github_url"] == ""
+    assert cleared.json()["location"] == ""
+
+
+def test_profile_rejects_oversized_contact_fields():
+    assert client.put("/api/v1/profile", json={"phone": "1" * 41}).status_code == 422
+    assert client.put("/api/v1/profile", json={"website_url": "h" * 501}).status_code == 422

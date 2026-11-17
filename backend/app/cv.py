@@ -8,8 +8,8 @@ import uuid
 
 from app.auth import get_current_user_id
 from app.database import get_db
-from app.models import CvDocument, CvVersion
-from app.cv_export import build_docx, build_pdf
+from app.models import CareerProfile, CvDocument, CvVersion
+from app.cv_export import CvContact, build_docx, build_pdf
 from app.ownership import get_or_create_for_user
 
 router = APIRouter(prefix="/api/v1/cv", tags=["CV Studio"])
@@ -67,12 +67,13 @@ def export_cv(
         raise HTTPException(status_code=400, detail="Add some CV content before exporting.")
 
     safe_name = re.sub(r"[^A-Za-z0-9_-]+", "-", cv.name.strip()).strip("-") or "CareerPilot-CV"
+    contact = _contact_for_user(db, user_id)
     if format == "pdf":
-        content = build_pdf(cv)
+        content = build_pdf(cv, contact)
         media_type = "application/pdf"
         filename = f"{safe_name}-CV.pdf"
     else:
-        content = build_docx(cv)
+        content = build_docx(cv, contact)
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         filename = f"{safe_name}-CV.docx"
 
@@ -80,6 +81,20 @@ def export_cv(
         BytesIO(content),
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _contact_for_user(db: Session, user_id: uuid.UUID) -> CvContact:
+    profile = db.query(CareerProfile).filter(CareerProfile.user_id == user_id).one_or_none()
+    if profile is None:
+        return CvContact()
+    return CvContact(
+        email=profile.email or "",
+        phone=profile.phone or "",
+        location=profile.location or "",
+        website_url=profile.website_url or "",
+        linkedin_url=profile.linkedin_url or "",
+        github_url=profile.github_url or "",
     )
 
 
