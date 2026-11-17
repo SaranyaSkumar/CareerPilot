@@ -40,7 +40,7 @@ class ApplicationUpdate(BaseModel):
     next_action_date: date | None = None
     notes: str | None = Field(default=None, max_length=10000)
     cv_version_id: int | None = None
-    cover_letter: str | None = Field(default=None, max_length=20000)
+    cover_letter: str = Field(default="", max_length=20000)
 
     @field_validator("title")
     @classmethod
