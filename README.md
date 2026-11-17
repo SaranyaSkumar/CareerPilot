@@ -21,6 +21,19 @@ The initial implementation is a modular monolith: Next.js + TypeScript + Tailwin
 
 See `docs/` for the product specification and architecture.
 
+## Job discovery — first release
+
+The Discover jobs workspace now supports:
+
+- Saving a vacancy from a public job-board or company careers-page URL.
+- Pasting the original job description so it is available for later matching.
+- Searching saved opportunities by role, company, skills, location, and source.
+- Filtering saved and archived roles, restoring archived roles, and deleting entries.
+- Duplicate URL detection to avoid saving the same listing twice.
+
+This release is a personal job inbox, not a live job-board aggregator. It does not scrape SEEK, Trade Me Jobs, LinkedIn, or employer sites. Provider integrations will be added only through permitted feeds or APIs and in accordance with their terms. Job descriptions and URLs are user-provided and should be treated as untrusted content.
+
+The API is available at `GET/POST /api/v1/jobs`, `PATCH /api/v1/jobs/{id}`, and `DELETE /api/v1/jobs/{id}`. Search supports `q`, `location`, and `status` query parameters.
 
 ## Vercel multi-service deployment
 
@@ -41,11 +54,9 @@ The web service has an internal service binding to `backend`. Vercel injects the
 
 This is still a personal-development API with a singleton profile/CV and no authentication or per-user authorization. Although the backend service is not routed directly from the public edge, the web proxy intentionally exposes its current API paths at same-origin `/api/v1/*`. **Do not use this deployment with real personal data or promote it to production until authentication, per-user data isolation, authorization, and appropriate database protections are implemented and tested.** Keeping the backend service internal is not a substitute for API authentication.
 
-
 ### CV document export
 
 CV Studio can generate an ATS-friendly, single-column PDF or editable Word document from the saved CV. The export endpoint builds each file in memory and returns it as a download; no generated CV files are persisted on the server. The export uses the facts entered in CV Studio and does not add inferred experience, skills, dates, or achievements.
-
 
 ### CV version history
 
