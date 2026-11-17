@@ -9,7 +9,7 @@ CareerPilot is being built personal-first, with an architecture that can support
 ## Planned MVP
 
 - Career profile and evidence-backed master CV
-- CV Studio with editable versions and PDF/DOCX export
+- CV Studio with editable CV content and ATS-friendly PDF/DOCX export
 - General and job-specific ATS analysis
 - New Zealand-first job discovery and explainable matching
 - Application preparation, quality checks, and tracking
@@ -40,3 +40,8 @@ The web service has an internal service binding to `backend`. Vercel injects the
 ### Security gate before production
 
 This is still a personal-development API with a singleton profile/CV and no authentication or per-user authorization. Although the backend service is not routed directly from the public edge, the web proxy intentionally exposes its current API paths at same-origin `/api/v1/*`. **Do not use this deployment with real personal data or promote it to production until authentication, per-user data isolation, authorization, and appropriate database protections are implemented and tested.** Keeping the backend service internal is not a substitute for API authentication.
+
+
+### CV document export
+
+CV Studio can generate an ATS-friendly, single-column PDF or editable Word document from the saved CV. The export endpoint builds each file in memory and returns it as a download; no generated CV files are persisted on the server. The export uses the facts entered in CV Studio and does not add inferred experience, skills, dates, or achievements.
