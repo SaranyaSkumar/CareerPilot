@@ -29,3 +29,19 @@ class CvDocument(Base):
     experience: Mapped[str] = mapped_column(Text, default="")
     skills: Mapped[str] = mapped_column(Text, default="")
     education: Mapped[str] = mapped_column(Text, default="")
+
+
+class CvVersion(Base):
+    __tablename__ = "cv_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    job_title: Mapped[str] = mapped_column(String(200), default="")
+    company: Mapped[str] = mapped_column(String(200), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    snapshot: Mapped[dict] = mapped_column(__import__("sqlalchemy").JSON, nullable=False)
+    created_at: Mapped[__import__("datetime").datetime] = mapped_column(
+        __import__("sqlalchemy").DateTime(timezone=True),
+        server_default=__import__("sqlalchemy").func.now(),
+        nullable=False,
+    )
