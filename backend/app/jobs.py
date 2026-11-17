@@ -7,7 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import JobListing
+from app.models import CareerProfile, CvDocument, JobListing\nfrom app.job_matching import analyse_job_match
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["job discovery"])
 
@@ -86,6 +86,16 @@ def create_job(payload: JobCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(job)
     return job
+
+
+@router.get("/{job_id}/match")
+def match_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.get(JobListing, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    profile = db.get(CareerProfile, 1)
+    cv = db.get(CvDocument, 1)
+    return analyse_job_match(job, profile, cv)
 
 
 @router.patch("/{job_id}", response_model=JobResponse)
