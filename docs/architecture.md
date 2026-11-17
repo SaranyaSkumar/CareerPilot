@@ -8,7 +8,7 @@ Start with a **modular monolith**. Keep domain boundaries clear without introduc
 - API: Python 3.12+, FastAPI, Pydantic.
 - Persistence: PostgreSQL, SQLAlchemy 2, Alembic.
 - Background work: add Redis + Celery when async ingestion/agent jobs are introduced.
-- AI: provider abstraction around OpenAI; structured outputs validated with Pydantic.
+- AI: Anthropic Claude, called only from the FastAPI service. `ANTHROPIC_MODEL` selects the model and defaults to `claude-sonnet-5-5`. Structured outputs are validated with Pydantic. The browser never receives the API key.
 - Documents: DOCX generation and PDF rendering behind a document service.
 - Tests: Pytest for API/domain; Playwright for user journeys.
 - Local development: Docker Compose.
@@ -51,9 +51,23 @@ Supabase Auth (project `kcrtedhezyovfygfotia`, region `ap-southeast-2`) is the a
 
 FastAPI verifies that bearer token itself. It does not call Auth on every request and it does not trust the legacy JWT secret. Verification uses the public JWKS at `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` (override with `SUPABASE_JWKS_URL`), accepts only ES256 and RS256, and requires issuer `${SUPABASE_URL}/auth/v1`, audience `authenticated`, and role `authenticated`. `sub` is the user id. Unauthenticated API calls return 401. `/health` is the only public route and contains no user data.
 
-`career_profiles`, `cv_documents`, `cv_versions`, and `job_listings` all have a non-null `user_id` (uuid). Profile and CV draft rows are unique per user and are created on first read or save. Every query is scoped to the token's user. Unknown version and job ids return 404, including when the row exists for someone else.
+`career_profiles`, `cv_documents`, `cv_versions`, `job_listings`, and `ai_usage_events` all have a non-null `user_id` (uuid). Profile and CV draft rows are unique per user and are created on first read or save. Career-data queries are scoped to the token's user. Unknown version and job ids return 404, including when the row exists for someone else. The monthly AI cap sums costs across users and does not return their CV text or identifiers.
 
 Schema changes ship as an Alembic revision (`backend/migrations`) and as `backend/migrations_sql/20261117_0001_add_user_scoping.sql`. The process does not call `create_all` at startup. Row level security stays enabled. Policies for the `authenticated` role require `auth.uid() = user_id`. `careerpilot_app` has `BYPASSRLS` and a permissive policy, so backend query filters are the enforcement layer for that connection. The Data API, which uses `authenticated` and does not bypass RLS, cannot read another user's rows. Grants for `careerpilot_app` cover the tables and their identity sequences. `anon` is revoked.
+
+## CV writing assistance
+
+CV Studio can ask Claude to tailor the saved CV to one of the user's saved jobs, or to rewrite selected experience lines. The request is built from that user's saved CV and, for tailoring, that user's job. Another user's ids return 404. The job description is wrapped as untrusted data and is not part of the fact corpus.
+
+The model is instructed never to invent experience, employers, dates, skills, metrics, or achievements. The API then checks the structured result itself. A suggestion is flagged, and the UI will not accept it, when it introduces a number, month, or organisation that is not in the saved CV, when a highlighted skill is not in the saved CV, or when too little of the wording appears there. Gaps are returned as `could_not_support` rather than written into the CV.
+
+Nothing from the model is saved automatically. CV Studio shows a side-by-side diff. The user accepts or rejects each item. Only the accepted text is written, through the existing CV save route, and only if the user also asks for it is a new `cv_versions` row created.
+
+`GET /api/v1/cv/ai/status`, `POST /api/v1/cv/ai/tailor`, and `POST /api/v1/cv/ai/improve-bullets` all require the same Supabase access token as the rest of `/api/v1`. With no `ANTHROPIC_API_KEY`, those routes return 503 and the buttons show “AI not configured”.
+
+Spend is capped before the call. Input tokens are estimated from the prompt (characters divided by 3, plus framing) and output tokens are the request's `max_tokens`. The published per-million rate for the configured model prices that pair. A request whose estimate is above US$0.50 is refused. `max_tokens` is capped at 4096 for tailoring and 2048 for bullet rewrites. A per-user UTC-day total defaults to US$2 (`ANTHROPIC_DAILY_USER_CAP_USD`). An app-wide UTC-month total defaults to US$50 (`ANTHROPIC_MONTHLY_CAP_USD`). Both are recorded in `ai_usage_events`: a row is reserved at the estimate before the call and completed with the provider's actual token counts. Logs contain the user id, operation, model, token counts, and cost. They do not contain CV or job text.
+
+The table is added by `backend/migrations_sql/20261117_0002_add_ai_usage.sql` and Alembic revision `20261117_0002`. The API process does not run it. `careerpilot_app` cannot create tables, so the SQL has to be applied by a role that can.
 
 ## Trust and safety controls
 - Treat job descriptions, imported documents, and external page content as untrusted data, never as instructions.

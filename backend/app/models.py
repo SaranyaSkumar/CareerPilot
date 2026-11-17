@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import JSON, DateTime, Index, String, Text, Uuid, func, text
+from sqlalchemy import JSON, DateTime, Index, Numeric, String, Text, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -77,4 +78,31 @@ class JobListing(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class AiUsageEvent(Base):
+    """One Anthropic call, reserved before the request and completed with actual tokens.
+
+    Rows are the source of truth for the per-user daily cap and the app-wide
+    monthly cap. CV text is never stored here.
+    """
+
+    __tablename__ = "ai_usage_events"
+    __table_args__ = (
+        Index("ai_usage_events_user_created_idx", "user_id", "created_at"),
+        Index("ai_usage_events_created_idx", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    operation: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="reserved")
+    input_tokens: Mapped[int] = mapped_column(nullable=False, default=0)
+    output_tokens: Mapped[int] = mapped_column(nullable=False, default=0)
+    estimated_cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False)
+    actual_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
