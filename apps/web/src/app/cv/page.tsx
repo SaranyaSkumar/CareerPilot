@@ -267,6 +267,24 @@ export default function CvPage() {
   return (
     <main className="min-h-screen">
       <WorkspaceNav active="/cv" />
+      <style jsx global>{`
+        @media print {
+          @page { size: A4; margin: 16mm; }
+          body * { visibility: hidden !important; }
+          #cv-print-area, #cv-print-area * { visibility: visible !important; }
+          #cv-print-area {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
       <div className="lg:pl-[248px]">
         <WorkspaceHeader />
         <div className="mx-auto max-w-[1280px] px-6 py-9 md:px-10">
@@ -371,7 +389,7 @@ export default function CvPage() {
 
             <section className="rounded-2xl border border-[var(--line)] bg-white p-6 print:border-0 print:p-0">
               <div className="mb-5 flex items-center justify-between"><h2 className="font-semibold">Live preview</h2><span className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-xs font-medium text-[var(--brand)]">Single-column layout</span></div>
-              <article className="mx-auto min-h-[720px] max-w-[680px] border border-[#e8e8e2] bg-white p-8 text-[#202a25] shadow-sm print:border-0 print:shadow-none">
+              <article id="cv-print-area" className="mx-auto min-h-[720px] max-w-[680px] border border-[#e8e8e2] bg-white p-8 text-[#202a25] shadow-sm print:min-h-0 print:max-w-none print:border-0 print:p-0 print:shadow-none">
                 <h2 className="text-2xl font-bold tracking-tight">{cv.name || "Your Name"}</h2>
                 <p className="mt-1 text-sm font-medium text-[#315d49]">{cv.headline || "Professional Title"}</p>
                 {sections.filter(section => section.title === "Professional summary").map(section => <section key={section.title} className="mt-7"><h3 className="border-b border-[#dfe5df] pb-2 text-xs font-bold uppercase tracking-widest">{section.title}</h3><p className="mt-3 whitespace-pre-wrap text-sm leading-6">{section.body}</p></section>)}
