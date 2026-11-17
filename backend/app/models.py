@@ -40,8 +40,8 @@ class CvVersion(Base):
     company: Mapped[str] = mapped_column(String(200), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[__import__("datetime").datetime] = mapped_column(
-        __import__("sqlalchemy").DateTime(timezone=True),
-        server_default=__import__("sqlalchemy").func.now(),
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False,
     )
