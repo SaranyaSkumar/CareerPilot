@@ -34,7 +34,8 @@ def isolate_jobs_database():
     # Re-apply this module's isolated session for every test.
     app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
-    db.query(JobListing).delete()\n    db.query(CareerProfile).delete()
+    db.query(JobListing).delete()
+    db.query(CareerProfile).delete()
     db.commit()
     db.close()
 
