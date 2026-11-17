@@ -7,7 +7,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import CareerProfile, CvDocument, JobListing\nfrom app.job_matching import analyse_job_match
+from app.models import CareerProfile, CvDocument, JobListing
+from app.job_matching import analyse_job_match
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["job discovery"])
 
