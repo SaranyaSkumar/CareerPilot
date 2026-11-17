@@ -93,7 +93,8 @@ def test_application_cannot_attach_another_users_cv_version():
     version_id = version.id
     db.close()
     created = client.post("/api/v1/applications", json={"title": "Engineer"})
-    response = client.patch(f"/api/v1/applications/{created.json()[\"id\"]}", json={"cv_version_id": version_id})
+    application_id = created.json()["id"]
+    response = client.patch(f"/api/v1/applications/{application_id}", json={"cv_version_id": version_id})
     assert response.status_code == 404
 
 
