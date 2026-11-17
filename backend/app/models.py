@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    ForeignKey,
     Index,
     Numeric,
     String,
@@ -269,5 +270,7 @@ class JobApplication(Base):
     next_action: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     next_action_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    cv_version_id: Mapped[int | None] = mapped_column(ForeignKey("cv_versions.id", ondelete="SET NULL"), nullable=True)
+    cover_letter: Mapped[str] = mapped_column(Text, default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
