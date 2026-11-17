@@ -165,6 +165,44 @@ def preserve_marker(original: str, suggested: str) -> str:
     return cleaned
 
 
+# A missing job keyword may be surfaced only when the saved CV already uses
+# that term or an obvious equivalent. Frameworks and products are not inferred
+# from a language or a nearby tool.
+_KEYWORD_ALIASES: dict[str, tuple[str, ...]] = {
+    "postgresql": ("postgresql", "postgres"),
+    "postgres": ("postgresql", "postgres"),
+    "ci/cd": ("ci/cd", "cicd", "continuous integration", "continuous delivery"),
+    "gcp": ("gcp", "google cloud"),
+    "aws": ("aws", "amazon web services"),
+    "azure": ("azure", "microsoft azure"),
+    "node.js": ("node.js", "nodejs"),
+    "kubernetes": ("kubernetes", "k8s"),
+    "golang": ("golang",),
+    "go": ("golang", "go"),
+}
+
+
+def term_supported(term: str, corpus: str) -> str | None:
+    """Return the phrase already in the CV when it supports `term`.
+
+    The result is empty when the keyword would be a new skill. Callers must
+    not add it unless the user explicitly confirms it.
+    """
+
+    needle = " ".join(term.casefold().split())
+    if len(needle) < 2 or len(needle) > 80:
+        return None
+    candidates = list(_KEYWORD_ALIASES.get(needle, (needle,)))
+    if re.fullmatch(r"[a-z]{4,}", needle):
+        candidates.extend((f"{needle}ed", f"{needle}ing", f"{needle}s"))
+        if needle.endswith("e"):
+            candidates.append(f"{needle[:-1]}ing")
+    for candidate in dict.fromkeys(candidates):
+        if re.search(r"(?<!\w)" + re.escape(candidate) + r"(?!\w)", corpus.casefold()):
+            return candidate
+    return None
+
+
 def find_skill_phrase(skill: str, facts: dict[str, str]) -> str | None:
     needle = " ".join(skill.split())
     if len(needle) < 2 or len(needle) > 80:

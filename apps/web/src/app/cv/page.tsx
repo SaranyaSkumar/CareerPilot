@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Cloud, Download, FileUser, HardDrive, Printer, Save } from "lucide-react";
+import { CvAdjustPanel } from "@/components/cv-adjust-panel";
 import { CvAiAssist } from "@/components/cv-ai-assist";
+import { CvVariantList } from "@/components/cv-variant-list";
 import { WorkspaceHeader, WorkspaceNav } from "@/components/workspace-nav";
 import { currentUserId, readDraft, writeDraft } from "@/lib/draft-storage";
 import { workspaceFetch } from "@/lib/workspace-fetch";
@@ -36,6 +38,7 @@ export default function CvPage() {
   const [jobDescription, setJobDescription] = useState("");
   const [analysis, setAnalysis] = useState<AtsAnalysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
+  const [variantTick, setVariantTick] = useState(0);
   const userIdRef = useRef<string | null>(null);
 
   function rememberCv(value: Cv) {
@@ -375,8 +378,17 @@ export default function CvPage() {
                 </div>
               </div>}
               <p className="text-xs leading-5 text-[var(--muted)]">{analysis.disclaimer}</p>
+              <CvAdjustPanel
+                cv={cv}
+                jobDescription={jobDescription}
+                analysis={analysis}
+                disabled={analysing || status === "loading"}
+                onVariantCreated={() => setVariantTick(value => value + 1)}
+              />
             </div>}
           </section>
+
+          <CvVariantList refreshKey={variantTick} />
 
           <CvAiAssist
             cv={cv}
@@ -386,6 +398,7 @@ export default function CvPage() {
               rememberCv(next);
               setStatus("saved");
             }}
+            onVariantCreated={() => setVariantTick(value => value + 1)}
             onApplied={(next, note, refreshVersions) => {
               setCv(next);
               rememberCv(next);

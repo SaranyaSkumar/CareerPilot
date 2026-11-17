@@ -90,7 +90,7 @@ Browser drafts in local storage are keyed by the signed-in user id and cleared o
 
 ### AI CV writing
 
-CV Studio can tailor the saved CV to one saved job, or rewrite selected experience lines. Claude receives only that user's saved facts. Suggestions are shown side by side and are not stored until the user accepts them. Accepted text can also be kept as a new CV version. The model is instructed not to invent experience, employers, dates, skills, or metrics, and the API flags wording it cannot ground in the saved CV. Each request is refused above US$0.50. A user defaults to US$2 per UTC day, and the workspace defaults to US$50 per UTC month, tracked in `ai_usage_events`.
+CV Studio can tailor the saved CV to one saved job, or rewrite selected experience lines. Claude receives only that user's saved facts. Suggestions are shown side by side and are not stored until the user accepts them. A tailored CV is saved as a named variant and does not replace the original draft. The ATS analyser can also create an adjusted variant from its suggestions. Missing keywords are suggested only when the saved CV already supports them; the rest are gaps the user can tick if they are true. The model is instructed not to invent experience, employers, dates, skills, or metrics, and the API flags wording it cannot ground in the saved CV. Each request is refused above US$0.50. A user defaults to US$2 per UTC day, and the workspace defaults to US$50 per UTC month, tracked in `ai_usage_events`. Apply `backend/migrations_sql/20261117_0003_add_cv_variants.sql` in the Supabase SQL editor before using variants.
 
 ### CV document export
 

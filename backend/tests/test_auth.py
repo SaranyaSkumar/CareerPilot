@@ -56,7 +56,7 @@ def test_api_root_requires_a_verified_user():
     assert anonymous.get("/api/v1").status_code == 401
     authed = client.get("/api/v1")
     assert authed.status_code == 200
-    assert authed.json()["version"] == "0.6.0"
+    assert authed.json()["version"] == "0.7.0"
 
 
 @pytest.mark.parametrize(
@@ -75,6 +75,17 @@ def test_api_root_requires_a_verified_user():
         ("GET", "/api/v1/cv/ai/status"),
         ("POST", "/api/v1/cv/ai/tailor"),
         ("POST", "/api/v1/cv/ai/improve-bullets"),
+        ("POST", "/api/v1/cv/ai/adjust"),
+        ("GET", "/api/v1/cv/variants"),
+        ("POST", "/api/v1/cv/variants"),
+        ("POST", "/api/v1/cv/variants/score"),
+        ("POST", "/api/v1/cv/variants/clear-default"),
+        ("PATCH", "/api/v1/cv/variants/1"),
+        ("DELETE", "/api/v1/cv/variants/1"),
+        ("POST", "/api/v1/cv/variants/1/duplicate"),
+        ("POST", "/api/v1/cv/variants/1/default"),
+        ("POST", "/api/v1/cv/variants/1/export?format=pdf"),
+        ("POST", "/api/v1/cv/variants/1/analyse"),
         ("GET", "/api/v1/jobs"),
         ("POST", "/api/v1/jobs"),
         ("PATCH", "/api/v1/jobs/1"),
