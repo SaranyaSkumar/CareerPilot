@@ -9,6 +9,7 @@ type Variant = {
   job_title: string;
   company: string;
   job_description: string;
+  profile_id: number | null;
   is_default: boolean;
   name: string;
   updated_at: string;
@@ -135,7 +136,7 @@ export function CvVariantList({ refreshKey }: { refreshKey: number }) {
         <p className="mt-1 text-xs text-[var(--muted)]">Tailored copies stay separate from your original CV. One variant can be the default. Export or re-check any of them on its own.</p>
       </div>
       {loading ? <p className="mt-4 text-sm text-[var(--muted)]">Loading CV variants…</p> : null}
-      {!loading && variants.length === 0 ? <p className="mt-4 text-sm text-[var(--muted)]">No CV variants yet. An adjusted CV appears here after you accept it.</p> : null}
+      {!loading && variants.length === 0 ? <p className="mt-4 text-sm text-[var(--muted)]">No tailored CVs yet. Paste a job description, choose a career profile and create your first tailored CV.</p> : null}
       <div className="mt-4 space-y-3">
         {variants.map(variant => {
           const score = scores[variant.id];
@@ -153,7 +154,7 @@ export function CvVariantList({ refreshKey }: { refreshKey: number }) {
                     />
                     {variant.is_default ? <span className="rounded-full bg-[var(--brand-soft)] px-2 py-1 text-xs font-semibold text-[var(--brand)]">Default</span> : null}
                   </div>
-                  <p className="mt-1 text-xs text-[var(--muted)]">{[variant.job_title, variant.company].filter(Boolean).join(" · ") || "General variant"} · {variant.name || "Unnamed"} · {new Date(variant.updated_at).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">{[variant.job_title, variant.company].filter(Boolean).join(" · ") || "General variant"} · {variant.profile_id ? `Profile #${variant.profile_id}` : "Master CV"} · {new Date(variant.updated_at).toLocaleString()}</p>
                 </div>
                 <button type="button" onClick={() => void rename(variant)} disabled={busyId === variant.id} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold disabled:opacity-60">Rename</button>
               </div>
