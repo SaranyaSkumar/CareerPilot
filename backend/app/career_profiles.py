@@ -20,6 +20,7 @@ class CareerProfilePayload(BaseModel):
     employment_type: str = Field(default="full_time", pattern="^(full_time|part_time|contract|casual|custom)$")
     target_roles: str = Field(default="", max_length=1000)
     location: str = Field(default="New Zealand", max_length=200)
+    cv_name: str = Field(default="", max_length=160)
     headline: str = Field(default="", max_length=200)
     summary: str = Field(default="", max_length=5000)
     experience: str = Field(default="", max_length=20000)
@@ -32,6 +33,7 @@ class CareerProfileUpdate(BaseModel):
     employment_type: str | None = Field(default=None, pattern="^(full_time|part_time|contract|casual|custom)$")
     target_roles: str | None = Field(default=None, max_length=1000)
     location: str | None = Field(default=None, max_length=200)
+    cv_name: str | None = Field(default=None, max_length=160)
     headline: str | None = Field(default=None, max_length=200)
     summary: str | None = Field(default=None, max_length=5000)
     experience: str | None = Field(default=None, max_length=20000)
@@ -105,8 +107,8 @@ def refresh_from_master(profile_id: int, user_id: uuid.UUID = Depends(get_curren
     master = db.query(CvDocument).filter(CvDocument.user_id == user_id).one_or_none()
     if master is None:
         raise HTTPException(status_code=400, detail="Save your master CV before copying it into a profile.")
-    for field in ("headline", "summary", "experience", "skills", "education"):
-        setattr(row, field, getattr(master, field) or "")
+    for field in ("cv_name", "headline", "summary", "experience", "skills", "education"):
+        setattr(row, field, getattr(master, "name" if field == "cv_name" else field) or "")
     row.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(row)
