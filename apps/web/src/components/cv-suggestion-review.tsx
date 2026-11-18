@@ -103,9 +103,13 @@ export function SuggestionReview({
   onDiscard: () => void;
 }) {
   const [items, setItems] = useState(result.items);
-  const [decisions, setDecisions] = useState<Record<string, "accepted" | "rejected">>({});
+  const [decisions, setDecisions] = useState<Record<string, "accepted" | "rejected">>(() =>
+    Object.fromEntries(result.items
+      .filter(item => !item.unsupported && (item.section === "skills" || item.before !== item.after))
+      .map(item => [item.id, "accepted" as const])),
+  );
   const [gaps, setGaps] = useState<Record<string, boolean>>({});
-  const [useOrder, setUseOrder] = useState(false);
+  const [useOrder, setUseOrder] = useState(result.order_changed);
   const [saveVersion, setSaveVersion] = useState(false);
   const [notice, setNotice] = useState("");
   const [adjustedScore, setAdjustedScore] = useState<number | null>(null);
@@ -154,6 +158,18 @@ export function SuggestionReview({
       <p className="text-xs text-[var(--muted)]">
         {result.input_tokens} input tokens and {result.output_tokens} output tokens were used. Nothing is saved until you accept it. You can edit a suggestion before saving.
       </p>
+      <div className="rounded-xl border border-[var(--line)] bg-white p-4">
+        <h4 className="text-sm font-semibold">Generated CV draft</h4>
+        <p className="mt-1 text-xs text-[var(--muted)]">This is the complete draft with supported suggestions applied. You can still reject or edit individual changes below.</p>
+        <div className="mt-4 space-y-3">
+          {draft.name ? <p className="text-lg font-semibold">{draft.name}</p> : null}
+          {draft.headline ? <p className="text-sm font-medium">{draft.headline}</p> : null}
+          {draft.summary ? <div><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Professional summary</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{draft.summary}</p></div> : null}
+          {draft.experience ? <div><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Experience</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{draft.experience}</p></div> : null}
+          {draft.skills ? <div><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Skills</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{draft.skills}</p></div> : null}
+          {draft.education ? <div><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Education</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{draft.education}</p></div> : null}
+        </div>
+      </div>
       {result.original_score ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-[var(--line)] p-3">
