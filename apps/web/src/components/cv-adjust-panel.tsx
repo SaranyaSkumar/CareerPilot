@@ -31,7 +31,7 @@ export function CvAdjustPanel({
   const [jobTitle, setJobTitle] = useState("");
   const [profiles, setProfiles] = useState<Array<{id:number;name:string;cv_name:string;headline:string;summary:string;experience:string;skills:string;education:string}>>([]);
   const [profileId, setProfileId] = useState("");
-  useEffect(() => { workspaceFetch("/api/v1/career-profiles").then(async r => { if (r.ok) setProfiles(await r.json()); }).catch(() => undefined); }, []);
+  useEffect(() => { const initial = new URLSearchParams(window.location.search).get("profile"); if (initial && /^\\d+$/.test(initial)) setProfileId(initial); workspaceFetch("/api/v1/career-profiles").then(async r => { if (r.ok) setProfiles(await r.json()); }).catch(() => undefined); }, []);
   const selectedProfile = profiles.find(p => String(p.id) === profileId);
   const sourceCv = useMemo<CvContent>(() => selectedProfile ? ({
     name: selectedProfile.cv_name || cv.name, headline: selectedProfile.headline, summary: selectedProfile.summary,
