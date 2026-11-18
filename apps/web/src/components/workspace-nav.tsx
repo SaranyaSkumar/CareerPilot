@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { BriefcaseBusiness, FileUser, Gauge, Search, Target, TrendingUp } from "lucide-react";
+import { BriefcaseBusiness, FileUser, Gauge, Search, Target, TrendingUp, Users } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 
 const items = [
   { href: "/", label: "Overview", icon: Gauge },
   { href: "/profile", label: "Career profile", icon: Target },
   { href: "/cv", label: "CV Studio", icon: FileUser },
+  { href: "/career-profiles", label: "Career profiles", icon: Users },
   { href: "/jobs", label: "Discover jobs", icon: Search },
   { href: "/applications", label: "Applications", icon: BriefcaseBusiness },
 ];
