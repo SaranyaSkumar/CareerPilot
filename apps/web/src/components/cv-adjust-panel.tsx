@@ -62,6 +62,7 @@ export function CvAdjustPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          profile_id: profileId ? Number(profileId) : null,
           job_description: jobDescription,
           job_title: jobTitle,
           company,
@@ -98,6 +99,7 @@ export function CvAdjustPanel({
           job_title: jobTitle || review.result.job_title,
           company: company || review.result.company,
           job_description: jobDescription,
+          profile_id: profileId ? Number(profileId) : null,
         }),
       });
       if (!response.ok) {
@@ -105,7 +107,7 @@ export function CvAdjustPanel({
         return;
       }
       setReview(null);
-      setMessage(`Saved “${label}” as its own CV. Your original draft was not changed.`);
+      setMessage(`Saved “${label}” under ${selectedProfile?.name ?? "Master CV"}. Your source CV was not changed.`);
       onVariantCreated();
     } catch {
       setMessage("The adjusted CV could not be saved.");
