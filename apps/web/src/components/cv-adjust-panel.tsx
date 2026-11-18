@@ -121,7 +121,7 @@ export function CvAdjustPanel({
         Generate a job-specific CV from your selected source profile. CareerPilot will prioritise relevant experience and naturally use supported job keywords without inventing skills or achievements. Your original CV stays unchanged.
       </p>
       <label className="mt-3 block text-sm font-medium">Tailor from profile
-        <select className={field} value={profileId} onChange={event => setProfileId(event.target.value)}>
+        <select className={field} value={profileId} onChange={event => { setProfileId(event.target.value); setVariantId(null); }}>
           <option value="">Master CV</option>
           {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
         </select>
