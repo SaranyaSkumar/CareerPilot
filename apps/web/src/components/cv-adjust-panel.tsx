@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SuggestionReview, type AiResult } from "@/components/cv-suggestion-review";
 import { variantLabel, type CvContent } from "@/lib/cv-suggestions";
 import { workspaceFetch } from "@/lib/workspace-fetch";
@@ -29,6 +29,14 @@ export function CvAdjustPanel({
   onVariantCreated: () => void;
 }) {
   const [jobTitle, setJobTitle] = useState("");
+  const [profiles, setProfiles] = useState<Array<{id:number;name:string;cv_name:string;headline:string;summary:string;experience:string;skills:string;education:string}>>([]);
+  const [profileId, setProfileId] = useState("");
+  useEffect(() => { workspaceFetch("/api/v1/career-profiles").then(async r => { if (r.ok) setProfiles(await r.json()); }).catch(() => undefined); }, []);
+  const selectedProfile = profiles.find(p => String(p.id) === profileId);
+  const sourceCv = useMemo<CvContent>(() => selectedProfile ? ({
+    name: selectedProfile.cv_name || cv.name, headline: selectedProfile.headline, summary: selectedProfile.summary,
+    experience: selectedProfile.experience, skills: selectedProfile.skills, education: selectedProfile.education,
+  }) : cv, [selectedProfile, cv]);
   const [company, setCompany] = useState("");
   const [busy, setBusy] = useState<"adjust" | "save" | null>(null);
   const [message, setMessage] = useState("");
@@ -41,12 +49,12 @@ export function CvAdjustPanel({
     setBusy("adjust");
     setMessage("");
     try {
-      const saved = await workspaceFetch("/api/v1/cv", {
+      const saved = profileId ? null : await workspaceFetch("/api/v1/cv", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cv),
       });
-      if (!saved.ok) {
+      if (saved && !saved.ok) {
         setMessage((await readDetail(saved)) || "Save your CV before creating an adjusted version.");
         return;
       }
@@ -66,7 +74,7 @@ export function CvAdjustPanel({
         return;
       }
       const result = await response.json() as AiResult;
-      setReview({ base: cv, result });
+      setReview({ base: sourceCv, result });
       setMessage("Review the adjusted CV. Your original draft will not be replaced.");
     } catch {
       setMessage("An adjusted CV could not be prepared.");
@@ -112,6 +120,13 @@ export function CvAdjustPanel({
       <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
         Turn these suggestions into a separate CV. Missing keywords are added only when your existing facts already support them, or when you tick a gap you genuinely have.
       </p>
+      <label className="mt-3 block text-sm font-medium">Tailor from profile
+        <select className={field} value={profileId} onChange={event => setProfileId(event.target.value)}>
+          <option value="">Master CV</option>
+          {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+        </select>
+      </label>
+      <p className="mt-1 text-xs text-[var(--muted)]">{selectedProfile ? `Using the independent “${selectedProfile.name}” profile as the source. Your master CV will not be changed.` : "Using your master CV as the source."}</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium">Role title <span className="font-normal text-[var(--muted)]">(optional)</span>
           <input className={field} value={jobTitle} onChange={event => setJobTitle(event.target.value)} placeholder="e.g. Backend Engineer" />
