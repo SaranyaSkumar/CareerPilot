@@ -46,9 +46,11 @@ export function CvVariantList({ refreshKey }: { refreshKey: number }) {
   const [message, setMessage] = useState("");
   const [names, setNames] = useState<Record<number, string>>({});
   const [scores, setScores] = useState<Record<number, ScorePair>>({});
+  const [profileNames, setProfileNames] = useState<Record<number, string>>({});
 
   useEffect(() => {
     let active = true;
+    workspaceFetch("/api/v1/career-profiles").then(async response => { if (response.ok) { const rows = await response.json() as Array<{id:number;name:string}>; if (active) setProfileNames(Object.fromEntries(rows.map(row => [row.id, row.name]))); } }).catch(() => undefined);
     workspaceFetch("/api/v1/cv/variants")
       .then(async response => {
         if (!active || !response.ok) return;
@@ -154,7 +156,7 @@ export function CvVariantList({ refreshKey }: { refreshKey: number }) {
                     />
                     {variant.is_default ? <span className="rounded-full bg-[var(--brand-soft)] px-2 py-1 text-xs font-semibold text-[var(--brand)]">Default</span> : null}
                   </div>
-                  <p className="mt-1 text-xs text-[var(--muted)]">{[variant.job_title, variant.company].filter(Boolean).join(" · ") || "General variant"} · {variant.profile_id ? `Profile #${variant.profile_id}` : "Master CV"} · {new Date(variant.updated_at).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">{[variant.job_title, variant.company].filter(Boolean).join(" · ") || "General variant"} · {variant.profile_id ? (profileNames[variant.profile_id] ?? "Career profile") : "Master CV"} · {new Date(variant.updated_at).toLocaleString()}</p>
                 </div>
                 <button type="button" onClick={() => void rename(variant)} disabled={busyId === variant.id} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold disabled:opacity-60">Rename</button>
               </div>
