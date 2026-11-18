@@ -25,6 +25,7 @@ export function CvAdjustPanel({
   const [jobTitle, setJobTitle] = useState("");
   const [profiles, setProfiles] = useState<Array<{id:number;name:string;cv_name:string;headline:string;summary:string;experience:string;skills:string;education:string}>>([]);
   const [profileId, setProfileId] = useState("");
+  const [variantId, setVariantId] = useState<number | null>(null);
   useEffect(() => { const initial = new URLSearchParams(window.location.search).get("profile"); if (initial && /^\d+$/.test(initial)) setProfileId(initial); workspaceFetch("/api/v1/career-profiles").then(async r => { if (r.ok) setProfiles(await r.json()); }).catch(() => undefined); }, []);
   const selectedProfile = profiles.find(p => String(p.id) === profileId);
   const sourceCv = useMemo<CvContent>(() => selectedProfile ? ({
@@ -58,6 +59,7 @@ export function CvAdjustPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           profile_id: profileId ? Number(profileId) : null,
+          variant_id: variantId,
           job_description: jobDescription,
           job_title: jobTitle,
           company,
@@ -100,8 +102,10 @@ export function CvAdjustPanel({
         setMessage((await readDetail(response)) || "The adjusted CV could not be saved.");
         return;
       }
+      const savedVariant = await response.json() as { id: number };
+      setVariantId(savedVariant.id);
       setReview(null);
-      setMessage(`Saved “${label}” under ${selectedProfile?.name ?? "Master CV"}. Your source CV was not changed.`);
+      setMessage(`Saved “${label}”. You can now regenerate from this latest version; your original CV remains unchanged.`);
       onVariantCreated();
     } catch {
       setMessage("The adjusted CV could not be saved.");
