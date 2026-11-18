@@ -69,6 +69,26 @@ class CvVersion(Base):
     )
 
 
+class CareerTrackProfile(Base):
+    __tablename__ = "career_track_profiles"
+    __table_args__ = (Index("career_track_profiles_user_updated_idx", "user_id", "updated_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    employment_type: Mapped[str] = mapped_column(String(20), default="full_time", nullable=False)
+    target_roles: Mapped[str] = mapped_column(String(1000), default="", nullable=False)
+    location: Mapped[str] = mapped_column(String(200), default="New Zealand", nullable=False)
+    cv_name: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    headline: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    experience: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    skills: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    education: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class CvVariant(Base):
     """A named CV kept beside the original draft.
 
@@ -94,6 +114,7 @@ class CvVariant(Base):
     job_title: Mapped[str] = mapped_column(String(200), default="")
     company: Mapped[str] = mapped_column(String(200), default="")
     job_id: Mapped[int | None] = mapped_column(nullable=True)
+    profile_id: Mapped[int | None] = mapped_column(ForeignKey("career_track_profiles.id", ondelete="SET NULL"), nullable=True)
     job_description: Mapped[str] = mapped_column(Text, default="")
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     name: Mapped[str] = mapped_column(String(160), default="")
