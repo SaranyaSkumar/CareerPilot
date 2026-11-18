@@ -395,7 +395,6 @@ export default function CvPage() {
             <CvAdjustPanel
               cv={cv}
               jobDescription={jobDescription}
-              analysis={analysis}
               disabled={status === "loading"}
               onVariantCreated={() => setVariantTick(value => value + 1)}
             />
