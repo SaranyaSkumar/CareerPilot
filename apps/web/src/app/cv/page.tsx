@@ -384,14 +384,20 @@ export default function CvPage() {
           <section className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
-                <h2 className="font-semibold">ATS analyser</h2>
-                <p className="mt-1 text-xs text-[var(--muted)]">Check your CV structure and compare its wording with a specific job description.</p>
+                <h2 className="font-semibold">ATS check</h2>
+                <p className="mt-1 text-xs text-[var(--muted)]">Check the selected CV against the job description after generating or editing it. Tailored CVs can also be checked individually below.</p>
               </div>
-              <button onClick={() => void runAtsAnalysis()} disabled={analysing || status === "loading"} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{analysing ? "Analysing…" : "Analyse my CV"}</button>
+              <button onClick={() => void runAtsAnalysis()} disabled={analysing || status === "loading"} className="rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{analysing ? "Checking…" : "Check master CV"}</button>
             </div>
             <label className="mt-4 block text-sm font-medium">Job description <span className="font-normal text-[var(--muted)]">(optional)</span>
               <textarea className={input + " min-h-36 resize-y"} value={jobDescription} onChange={e => setJobDescription(e.target.value)} placeholder="Paste the job description here for a tailored keyword and alignment check…"/>
             </label>
+            <CvAdjustPanel
+              cv={cv}
+              jobDescription={jobDescription}
+              disabled={status === "loading"}
+              onVariantCreated={() => setVariantTick(value => value + 1)}
+            />
             {analysis && <div className="mt-5 space-y-5">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-[var(--brand-soft)] p-4"><p className="text-xs text-[var(--muted)]">CV structure</p><p className="mt-1 text-2xl font-semibold">{analysis.formatting_score}<span className="text-sm font-normal">/100</span></p></div>
@@ -413,13 +419,6 @@ export default function CvPage() {
                 </div>
               </div>}
               <p className="text-xs leading-5 text-[var(--muted)]">{analysis.disclaimer}</p>
-              <CvAdjustPanel
-                cv={cv}
-                jobDescription={jobDescription}
-                analysis={analysis}
-                disabled={analysing || status === "loading"}
-                onVariantCreated={() => setVariantTick(value => value + 1)}
-              />
             </div>}
           </section>
 

@@ -23,7 +23,7 @@ from app.cv import CV_FIELDS, CvPayload, _contact_for_user
 from app.cv_analysis import AnalysisResponse, analyse_cv
 from app.cv_export import build_docx, build_pdf
 from app.database import get_db
-from app.models import CvDocument, CvVariant, JobListing
+from app.models import CareerTrackProfile, CvDocument, CvVariant, JobListing
 
 router = APIRouter(prefix="/api/v1/cv/variants", tags=["CV Studio"])
 
@@ -34,6 +34,7 @@ class VariantCreate(CvPayload):
     company: str = Field(default="", max_length=200)
     job_id: int | None = Field(default=None, ge=1)
     job_description: str = Field(default="", max_length=20000)
+    profile_id: int | None = Field(default=None, ge=1)
 
 
 class VariantUpdate(BaseModel):
@@ -50,6 +51,7 @@ class VariantResponse(CvPayload):
     company: str
     job_id: int | None
     job_description: str
+    profile_id: int | None
     is_default: bool
     created_at: datetime
     updated_at: datetime
@@ -157,8 +159,17 @@ def create_variant(
         job_title = job_title or job.title
         company = company or job.company
 
+    if payload.profile_id is not None:
+        profile = db.query(CareerTrackProfile).filter(
+            CareerTrackProfile.id == payload.profile_id,
+            CareerTrackProfile.user_id == user_id,
+        ).one_or_none()
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Career profile not found.")
+
     variant = CvVariant(
         user_id=user_id,
+        profile_id=payload.profile_id,
         label=label,
         job_title=job_title,
         company=company,
@@ -224,6 +235,7 @@ def duplicate_variant(
         job_title=source.job_title,
         company=source.company,
         job_id=source.job_id,
+        profile_id=source.profile_id,
         job_description=source.job_description,
         is_default=False,
         created_at=datetime.now(timezone.utc),

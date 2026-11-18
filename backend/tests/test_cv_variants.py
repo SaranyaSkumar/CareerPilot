@@ -13,7 +13,7 @@ from app.cv_ai import ModelTailor
 from app.cv_grounding import term_supported
 from app.database import Base, get_db
 from app.main import app
-from app.models import CvDocument, CvVariant, JobListing
+from app.models import CareerTrackProfile, CvDocument, CvVariant, JobListing
 from tests.api_client import AuthClient
 from tests.jwt_support import USER_A, USER_B
 
@@ -78,6 +78,7 @@ def reset_state(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_MONTHLY_CAP_USD", raising=False)
     db = TestingSessionLocal()
     db.query(CvVariant).delete()
+    db.query(CareerTrackProfile).delete()
     db.query(JobListing).delete()
     db.query(CvDocument).delete()
     db.commit()
@@ -303,3 +304,63 @@ def test_variant_migration_enables_rls_and_limits_authenticated_grants():
         Path(__file__).resolve().parents[1] / "migrations" / "versions" / "20261117_0004_add_cv_variants.py"
     ).read_text(encoding="utf-8")
     assert 'down_revision = "20261117_0003"' in migration
+
+
+
+def test_career_profiles_are_private_and_copy_master_without_mutating_it():
+    _save_cv()
+    created = client.post("/api/v1/career-profiles", json={
+        "name": "Contract engineering",
+        "employment_type": "contract",
+        "target_roles": "Backend Engineer, Platform Engineer",
+    })
+    assert created.status_code == 201
+    profile = created.json()
+    assert profile["cv_name"] == ""
+    copied = client.post(f"/api/v1/career-profiles/from-master/{profile['id']}")
+    assert copied.status_code == 200
+    assert copied.json()["cv_name"] == CV["name"]
+    assert copied.json()["skills"] == CV["skills"]
+    assert client.get("/api/v1/cv").json()["skills"] == CV["skills"]
+    assert other.get("/api/v1/career-profiles").json() == []
+    assert other.patch(f"/api/v1/career-profiles/{profile['id']}", json={"name": "Hijack"}).status_code == 404
+    variant = client.post("/api/v1/cv/variants", json={
+        **CV,
+        "label": "Contract backend role",
+        "profile_id": profile["id"],
+        "job_description": JD,
+    })
+    assert variant.status_code == 201
+    assert variant.json()["profile_id"] == profile["id"]
+    assert other.delete(f"/api/v1/career-profiles/{profile['id']}").status_code == 404
+
+
+def test_adjust_uses_selected_profile_facts_and_rejects_another_users_profile(monkeypatch):
+    _save_cv()
+    profile_response = client.post("/api/v1/career-profiles", json={
+        "name": "Part-time support",
+        "employment_type": "part_time",
+        "cv_name": "Alex Example",
+        "headline": "Application Support Engineer",
+        "summary": "Profile-only summary cobalt",
+        "experience": "Application Support | Example Ltd | 2024-present\\n- Resolved support tickets with Python",
+        "skills": "Python, Customer Support",
+        "education": "BSc Computer Science",
+    })
+    assert profile_response.status_code == 201
+    profile_id = profile_response.json()["id"]
+    fake = _enable(monkeypatch, _grounded())
+    tailored = client.post("/api/v1/cv/ai/adjust", json={
+        "profile_id": profile_id,
+        "job_description": JD,
+        "job_title": "Support Engineer",
+    })
+    assert tailored.status_code == 200
+    prompt = fake.messages.calls[0]["messages"][0]["content"]
+    assert "Profile-only summary cobalt" in prompt
+    assert "Builds dependable applications" not in prompt
+    hidden = other.post("/api/v1/cv/ai/adjust", json={
+        "profile_id": profile_id,
+        "job_description": JD,
+    })
+    assert hidden.status_code == 404
