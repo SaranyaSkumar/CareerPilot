@@ -44,7 +44,7 @@ from app.cv_grounding import (
     term_supported,
 )
 from app.database import get_db
-from app.models import AiUsageEvent, CvDocument, CvVariant, JobListing
+from app.models import AiUsageEvent, CareerTrackProfile, CvDocument, CvVariant, JobListing
 
 logger = logging.getLogger("careerpilot.ai")
 
@@ -102,6 +102,7 @@ class AdjustRequest(BaseModel):
     job_title: str = Field(default="", max_length=200)
     company: str = Field(default="", max_length=200)
     variant_id: int | None = Field(default=None, ge=1)
+    profile_id: int | None = Field(default=None, ge=1)
     keywords: list[str] = Field(default_factory=list, max_length=40)
     recommendations: list[str] = Field(default_factory=list, max_length=20)
 
@@ -699,7 +700,25 @@ def tailor_cv(
     return attach_keyword_guidance(suggestion, facts, job_facts["description"])
 
 
-def _source_facts(db: Session, user_id: uuid.UUID, variant_id: int | None) -> dict[str, str]:
+def _source_facts(db: Session, user_id: uuid.UUID, variant_id: int | None, profile_id: int | None = None) -> dict[str, str]:
+    if profile_id is not None:
+        profile = db.query(CareerTrackProfile).filter(
+            CareerTrackProfile.id == profile_id,
+            CareerTrackProfile.user_id == user_id,
+        ).one_or_none()
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Career profile not found.")
+        facts = {
+            "name": profile.cv_name or "",
+            "headline": profile.headline or "",
+            "summary": profile.summary or "",
+            "experience": profile.experience or "",
+            "skills": profile.skills or "",
+            "education": profile.education or "",
+        }
+        if not any(value.strip() for value in facts.values()):
+            raise HTTPException(status_code=400, detail="That career profile has no CV content. Copy your master CV or add profile details first.")
+        return facts
     if variant_id is None:
         return _facts(_saved_cv(db, user_id))
     variant = (
@@ -728,7 +747,9 @@ def adjust_cv(
     """
 
     _require_configured()
-    facts = _source_facts(db, user_id, payload.variant_id)
+    facts = _source_facts(db, user_id, payload.variant_id, payload.profile_id)
+    if payload.profile_id is not None and payload.variant_id is not None:
+        raise HTTPException(status_code=422, detail="Choose a career profile or a CV variant as the tailoring source, not both.")
     if payload.job_id is not None:
         job = _own_job(db, user_id, payload.job_id)
         if not (job.description or "").strip():
