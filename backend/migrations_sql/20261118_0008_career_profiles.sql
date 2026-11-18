@@ -7,6 +7,7 @@ CREATE TABLE career_track_profiles (
         CHECK (employment_type IN ('full_time','part_time','contract','casual','custom')),
     target_roles varchar(1000) NOT NULL DEFAULT '',
     location varchar(200) NOT NULL DEFAULT 'New Zealand',
+    cv_name varchar(160) NOT NULL DEFAULT '',
     headline varchar(200) NOT NULL DEFAULT '',
     summary text NOT NULL DEFAULT '',
     experience text NOT NULL DEFAULT '',
