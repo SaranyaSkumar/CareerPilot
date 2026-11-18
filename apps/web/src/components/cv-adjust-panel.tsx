@@ -5,11 +5,6 @@ import { SuggestionReview, type AiResult } from "@/components/cv-suggestion-revi
 import { variantLabel, type CvContent } from "@/lib/cv-suggestions";
 import { workspaceFetch } from "@/lib/workspace-fetch";
 
-type Analysis = {
-  findings: { title: string }[];
-  keywords: { term: string; status: string }[];
-};
-
 async function readDetail(response: Response): Promise<string> {
   const body = await response.json().catch(() => null) as { detail?: unknown } | null;
   return typeof body?.detail === "string" ? body.detail : "";
@@ -24,7 +19,6 @@ export function CvAdjustPanel({
 }: {
   cv: CvContent;
   jobDescription: string;
-  analysis?: Analysis | null;
   disabled: boolean;
   onVariantCreated: () => void;
 }) {
